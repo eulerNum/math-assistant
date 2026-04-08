@@ -2,20 +2,15 @@
 -- Auto-creates a profiles row whenever a new row is inserted into auth.users.
 --
 -- BOOTSTRAP_TEACHER_EMAIL design:
---   The teacher email lives in Vercel environment variables. However, Postgres
---   functions cannot read Vercel env at runtime. Instead we use a Postgres GUC
---   (Grand Unified Configuration parameter) scoped to the database:
+--   The teacher email lives in Vercel environment variables. Postgres functions
+--   cannot read Vercel env, and Supabase forbids ALTER DATABASE to set custom
+--   GUCs in restricted roles (permission denied on `app.*` namespace).
 --
---     ALTER DATABASE postgres SET app.bootstrap_teacher_email = '<email>';
---
---   The main session operator runs this one-time via psql after migrations are
---   applied, copying the value from Vercel env into the DB setting.
---
---   Inside the trigger we read it with:
---     current_setting('app.bootstrap_teacher_email', true)
---   The second argument `true` means "missing_ok": returns NULL if the GUC is
---   not set, so the trigger degrades gracefully — all new users become 'student'
---   until the operator configures the GUC. No hardcoded email in source control.
+--   Instead we store the value in public.app_config (see 0000_app_config.sql)
+--   and read it inside the SECURITY DEFINER trigger. The db-migrate.mjs script
+--   upserts the value from .env.local after migrations apply, so the email
+--   stays out of source control and Vercel env remains the single source of
+--   truth (operator copies it into app_config via the migration script).
 
 create or replace function public.handle_new_user()
 returns trigger
@@ -24,9 +19,13 @@ security definer
 set search_path = public
 as $$
 declare
-  bootstrap_email text := current_setting('app.bootstrap_teacher_email', true);
+  bootstrap_email text;
   resolved_role   text;
 begin
+  select value into bootstrap_email
+  from public.app_config
+  where key = 'bootstrap_teacher_email';
+
   if bootstrap_email is not null
      and lower(bootstrap_email) = lower(new.email)
   then
