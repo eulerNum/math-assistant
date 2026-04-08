@@ -1,0 +1,18 @@
+{
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "if": "Bash(git commit*)",
+            "command": "npx vitest run 2>&1 && npm run lint 2>&1 || { echo '{\"decision\":\"block\",\"reason\":\"TDD 검증 실패: 테스트 또는 린트를 통과하지 못했습니다. 수정 후 다시 커밋하세요.\"}'; exit 0; }",
+            "timeout": 120,
+            "statusMessage": "TDD 검증 중 (vitest + lint)..."
+          }
+        ]
+      }
+    ]
+  }
+}
