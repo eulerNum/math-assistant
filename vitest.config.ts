@@ -8,7 +8,12 @@ export default defineConfig({
     environment: 'jsdom',
     globals: true,
     include: ['**/__tests__/**/*.test.{ts,tsx}'],
-    exclude: ['**/node_modules/**', '**/.next/**', '**/scaffold-temp/**'],
+    exclude: [
+      '**/node_modules/**',
+      '**/.next/**',
+      '**/scaffold-temp/**',
+      '**/.claude/worktrees/**',
+    ],
     passWithNoTests: true,
   },
   resolve: {
