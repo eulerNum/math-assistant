@@ -72,6 +72,16 @@ Step C dev-agent가 파일을 워크트리 파일시스템에 작성하고 `git 
 
 Agent tool로 생성한 워크트리 일부가 current HEAD가 아닌 초기 빈 커밋을 기준으로 분기되었다. 결과: 머지 시 "add/add" 충돌, 또는 `git diff main..worktree-branch`가 예상과 달라졌다. 완화: agent 반환 후 메인 세션에서 `git diff main..worktree-branch --stat`으로 diff를 검증하고, 이상하면 워크트리 경로에서 파일을 직접 복사했다.
 
+### 9. PKCE code_verifier 쿠키 스코프와 Vercel alias 호스트 불일치
+
+Phase 1 prod smoke test에서 `https://math-assistant-flame.vercel.app/login`으로 매직 링크를 요청했을 때 `PKCE code verifier not found in storage` 에러가 발생했다. 로컬(`localhost:3000`)에서는 단일 호스트라 재현되지 않았다.
+
+근본 원인: Vercel은 동일 배포를 여러 alias로 서빙한다 (canonical URL, 브랜치 alias, 배포별 해시 URL). PKCE code_verifier 쿠키는 정확히 한 호스트에만 스코프된다. `getSiteUrl()`이 클라이언트에서도 `process.env.NEXT_PUBLIC_SITE_URL`(빌드 시 인라인된 정적 값)을 반환했기 때문에, 사용자가 alias A에서 `/login`을 열면 쿠키는 호스트 A에 저장되고 `emailRedirectTo`는 env var 값인 호스트 B를 가리킨다. 매직 링크 클릭 → 호스트 B 도착 → 호스트 A 쿠키 못 읽음 → PKCE fail.
+
+수정: `lib/config/site.ts`에서 클라이언트(`typeof window !== 'undefined'`)는 항상 `window.location.origin`을 최우선 반환. 서버 사이드는 기존 env var → VERCEL_URL → localhost fallback 유지. 커밋: `5a70cd1 fix(phase-1): use window.location.origin client-side for magic link redirect`.
+
+교훈: SSR + PKCE를 쓰는 프로젝트에서 `emailRedirectTo` 같은 OAuth/magic link 리다이렉트 URL은 반드시 런타임 origin 기반이어야 한다. 정적 env 값은 서버 사이드 폴백으로만 사용할 것. Vercel 멀티 alias 환경에서는 "canonical URL"이라는 개념이 약하다 — 사용자가 어떤 alias에서 들어올지 예측 불가.
+
 ## 후속 과제 (Phase 2 이전 해결 권장)
 
 - `app/auth/callback/route.ts` — profile trigger가 아직 커밋되지 않아 `profiles` row가 null일 수 있는 race condition. 저렴한 retry-on-null 패턴으로 수정 예정 (reviewer 지적, Phase 1에서 deferred).
