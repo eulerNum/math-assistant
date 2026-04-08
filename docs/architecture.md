@@ -9,7 +9,7 @@ math-assistant/
 │   ├── auth/callback/           # Supabase OAuth 콜백 처리
 │   ├── teacher/dashboard/       # teacher role 홈 (guard: assertRole)
 │   ├── student/home/            # student role 홈 (guard: assertRole)
-│   └── api/                     # Route Handlers (Phase 4~5에서 추가)
+│   └── api/                     # Route Handlers (Phase 2+에서 추가 — Phase 1은 app/auth/callback/route.ts만)
 ├── components/                  # React 19 + TS 컴포넌트
 │   ├── canvas/                  # DrawingCanvas (Phase 3)
 │   ├── problem/                 # 문제 표시·변형 (Phase 2)
@@ -24,6 +24,8 @@ math-assistant/
 │   │   ├── client.ts            # 브라우저 Supabase 클라이언트
 │   │   ├── server.ts            # 서버 컴포넌트 Supabase 클라이언트
 │   │   └── middleware.ts        # proxy.ts에서 사용하는 세션 갱신 유틸
+│   ├── config/
+│   │   └── site.ts              # getSiteUrl() — 클라이언트: window.location.origin, 서버: env fallback
 │   ├── ai/                      # Anthropic SDK 래퍼 (Phase 2~4)
 │   ├── mastery/                 # 취약도 계산 엔진 (Phase 4)
 │   └── exam/                    # 모의고사 생성 (Phase 5)
@@ -34,7 +36,8 @@ math-assistant/
 │       ├── 0002_rls.sql               # RLS 정책
 │       └── 0003_profile_trigger.sql   # auth.users insert 트리거
 ├── scripts/
-│   └── db-migrate.mjs           # pg 기반 마이그레이션 실행기
+│   ├── db-migrate.mjs           # pg 기반 마이그레이션 실행기
+│   └── db-check.mjs             # DB 연결 + 스키마 점검 유틸
 ├── proxy.ts                     # Next.js 16 middleware (구 middleware.ts)
 └── vercel.ts                    # Vercel 설정 (vercel.json 대신)
 ```
