@@ -1,0 +1,11 @@
+{
+  "explorer.fileNesting.enabled": true,
+  "explorer.fileNesting.expand": false,
+  "explorer.fileNesting.patterns": {
+    "package.json": "package-lock.json, .npmrc, .nvmrc",
+    "tsconfig.json": "tsconfig.*.json, tsconfig.tsbuildinfo, next-env.d.ts",
+    "next.config.ts": "postcss.config.mjs, eslint.config.mjs, vitest.config.ts",
+    ".env.local.example": ".env, .env.*",
+    "CLAUDE.md": "TODO.md"
+  }
+}
