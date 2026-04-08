@@ -1,6 +1,11 @@
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import type { AuthUser, Role } from './guards';
+import { roleHomePath } from './redirects';
+
+function parseRole(value: unknown): Role | null {
+  return value === 'teacher' || value === 'student' ? value : null;
+}
 
 async function getCurrentUser(): Promise<AuthUser | null> {
   const supabase = await createClient();
@@ -15,12 +20,13 @@ async function getCurrentUser(): Promise<AuthUser | null> {
     .eq('id', user.id)
     .single();
 
-  if (!profile) return null;
+  const role = parseRole(profile?.role);
+  if (!role) return null;
 
   return {
     id: user.id,
     email: user.email ?? '',
-    role: profile.role as Role,
+    role,
   };
 }
 
@@ -28,7 +34,7 @@ async function requireRole(required: Role): Promise<AuthUser> {
   const user = await getCurrentUser();
   if (!user) redirect('/login');
   if (user.role !== required) {
-    redirect(user.role === 'teacher' ? '/teacher/dashboard' : '/student/home');
+    redirect(roleHomePath(user.role));
   }
   return user;
 }

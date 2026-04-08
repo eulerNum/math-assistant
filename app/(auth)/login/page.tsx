@@ -1,9 +1,13 @@
 'use client';
-import { useState } from 'react';
+import { Suspense, useState } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
 import { getSiteUrl } from '@/lib/config/site';
 
-export default function LoginPage() {
+function LoginForm() {
+  const searchParams = useSearchParams();
+  const callbackError = searchParams.get('error');
+
   const [email, setEmail] = useState('');
   const [status, setStatus] = useState<'idle' | 'sending' | 'sent' | 'error'>('idle');
   const [error, setError] = useState<string | null>(null);
@@ -25,10 +29,18 @@ export default function LoginPage() {
     setStatus('sent');
   }
 
+  function reset() {
+    setStatus('idle');
+    setError(null);
+  }
+
   return (
     <main className="flex min-h-screen items-center justify-center p-6">
       <form onSubmit={handleSubmit} className="w-full max-w-sm space-y-4 rounded border p-6">
         <h1 className="text-xl font-semibold">로그인</h1>
+        {callbackError && status === 'idle' && (
+          <p className="text-sm text-red-700">로그인 실패: {callbackError}</p>
+        )}
         <input
           type="email"
           required
@@ -46,14 +58,31 @@ export default function LoginPage() {
           {status === 'sending' ? '전송 중…' : '매직 링크 받기'}
         </button>
         {status === 'sent' && (
-          <p className="text-sm text-green-700">
-            이메일을 확인해 주세요. 링크를 클릭하면 로그인됩니다.
-          </p>
+          <div className="space-y-2">
+            <p className="text-sm text-green-700">
+              이메일을 확인해 주세요. 링크를 클릭하면 로그인됩니다.
+            </p>
+            <button
+              type="button"
+              onClick={reset}
+              className="text-sm text-gray-600 underline"
+            >
+              다른 이메일로 다시 시도
+            </button>
+          </div>
         )}
         {status === 'error' && error && (
           <p className="text-sm text-red-700">{error}</p>
         )}
       </form>
     </main>
+  );
+}
+
+export default function LoginPage() {
+  return (
+    <Suspense>
+      <LoginForm />
+    </Suspense>
   );
 }

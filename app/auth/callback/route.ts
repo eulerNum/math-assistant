@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
+import { roleHomePath } from '@/lib/auth/redirects';
 
 export async function GET(request: Request) {
   const { searchParams, origin } = new URL(request.url);
@@ -30,6 +31,6 @@ export async function GET(request: Request) {
     .eq('id', user.id)
     .single();
 
-  const dest = profile?.role === 'teacher' ? '/teacher/dashboard' : '/student/home';
-  return NextResponse.redirect(`${origin}${dest}`);
+  const role = profile?.role === 'teacher' ? 'teacher' : 'student';
+  return NextResponse.redirect(`${origin}${roleHomePath(role)}`);
 }

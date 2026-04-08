@@ -1,8 +1,10 @@
 #!/usr/bin/env node
 // Apply supabase/migrations/*.sql to the database in filename order.
 // Reads POSTGRES_URL_NON_POOLING and BOOTSTRAP_TEACHER_EMAIL from .env.local.
-// After migrations, sets the Postgres GUC `app.bootstrap_teacher_email` that
-// the 0003 trigger reads (ALTER DATABASE ... SET persists across sessions).
+// After migrations, upserts BOOTSTRAP_TEACHER_EMAIL into public.app_config
+// so the 0003 trigger can read it (Supabase postgres role lacks permission
+// to ALTER DATABASE SET on the app.* namespace, so we use a config table
+// instead of a Postgres GUC).
 //
 // Usage: node scripts/db-migrate.mjs
 
