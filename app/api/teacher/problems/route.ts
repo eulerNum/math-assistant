@@ -2,13 +2,19 @@ import { NextResponse } from 'next/server';
 import { z } from 'zod';
 import { createClient } from '@/lib/supabase/server';
 import { requireTeacher } from '@/lib/auth/session';
-import { extractProblemFromImage } from '@/lib/ai';
-import { PROBLEM_IMAGES_BUCKET } from '@/lib/storage';
 
+// Manual-text-entry is the primary path: the teacher extracts the problem
+// body with an external LLM (ChatGPT / Gemini / Claude web) and pastes it
+// into the form. Vision extraction via Anthropic API is kept dormant in
+// lib/ai/extract-problem.ts for future re-activation when a key is wired up.
 const BodySchema = z.object({
   problem_type_id: z.string().uuid(),
-  source_image_path: z.string().min(1),
-  media_type: z.enum(['image/jpeg', 'image/png']),
+  statement: z.string().min(1, '문제 본문이 비어 있습니다.'),
+  answer: z.string().optional(),
+  difficulty: z.number().int().min(1).max(5).optional(),
+  tags: z.array(z.string()).default([]),
+  source_image_path: z.string().min(1).optional(),
+  media_type: z.enum(['image/jpeg', 'image/png']).optional(),
 });
 
 export async function POST(request: Request) {
@@ -22,38 +28,16 @@ export async function POST(request: Request) {
 
   const supabase = await createClient();
 
-  const { data: fileData, error: downloadError } = await supabase.storage
-    .from(PROBLEM_IMAGES_BUCKET)
-    .download(parsed.data.source_image_path);
-  if (downloadError || !fileData) {
-    return NextResponse.json(
-      { error: `Failed to download image: ${downloadError?.message ?? 'unknown'}` },
-      { status: 500 },
-    );
-  }
-  const arrayBuffer = await fileData.arrayBuffer();
-  const base64 = Buffer.from(arrayBuffer).toString('base64');
-
-  let extracted;
-  try {
-    extracted = await extractProblemFromImage(base64, parsed.data.media_type);
-  } catch (err) {
-    return NextResponse.json(
-      { error: `Vision extraction failed: ${(err as Error).message}` },
-      { status: 502 },
-    );
-  }
-
   const { data: inserted, error: insertError } = await supabase
     .from('problems')
     .insert({
       problem_type_id: parsed.data.problem_type_id,
       teacher_id: teacher.id,
-      source_image_path: parsed.data.source_image_path,
-      statement: extracted.statement,
-      answer: extracted.answer ?? null,
-      difficulty: extracted.difficulty ?? null,
-      tags: extracted.tags,
+      source_image_path: parsed.data.source_image_path ?? null,
+      statement: parsed.data.statement,
+      answer: parsed.data.answer ?? null,
+      difficulty: parsed.data.difficulty ?? null,
+      tags: parsed.data.tags,
     })
     .select('id')
     .single();
@@ -65,5 +49,5 @@ export async function POST(request: Request) {
     );
   }
 
-  return NextResponse.json({ id: inserted.id, extracted });
+  return NextResponse.json({ id: inserted.id });
 }
