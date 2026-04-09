@@ -13,9 +13,10 @@
 | 0004_curriculum_and_problems.sql | curricula/chapters/problem_types/problems/problem_variants |
 | 0005_curriculum_rls.sql | 위 5개 테이블 RLS + 정책 |
 | 0006_seed_curricula.sql | 중3-1 curriculum 시드 (고1/고2는 빈 curriculum만) |
+| 0007_storage_bucket.sql | `problem-images` bucket + storage.objects RLS 정책 |
 
 **새 migration 추가 시**:
-- 이전 prefix + 1 (예: 다음은 `0007_...`)
+- 이전 prefix + 1 (예: 다음은 `0008_...`)
 - 테이블 DDL과 RLS는 **별도 파일**로 분리 (0001/0002, 0004/0005 패턴)
 - `create table if not exists` / `drop policy if exists` — 항상 re-runnable
 
@@ -40,12 +41,12 @@
 
 ## Storage bucket
 
-Phase 2부터 `problem-images` bucket을 사용한다.
-- access: private (teacher 본인 + 담당 student만 read)
-- path 규칙: `{teacher_id}/{uuid}.jpg`
-- 이미지는 **리사이즈 후 저장** — 최대 폭 1600px, JPEG q=85 (lib/storage 책임)
+Phase 2부터 `problem-images` bucket을 사용한다. `0007_storage_bucket.sql` 마이그레이션이 bucket과 storage RLS 정책을 함께 관리한다 (Dashboard 수동 생성 불필요).
 
-bucket 생성은 현재 SQL 마이그레이션이 아닌 **Supabase Dashboard 수동 생성** 또는 별도 provisioning script로 처리 (Phase 2 문서에서 확정).
+- access: private (teacher 본인 + 담당 student만 read)
+- path 규칙: `{teacher_id}/{uuid}.jpg` — 첫 폴더 segment가 teacher의 `auth.users.id`
+- 이미지는 **리사이즈 후 저장** — 최대 폭 1600px, JPEG q=85 (lib/storage 책임)
+- 정책은 `storage.foldername(name)[1]`로 경로의 teacher id를 추출해 비교 — RLS 조건을 유지하려면 path 규칙을 절대 바꾸지 말 것
 
 ## 시드 데이터
 
