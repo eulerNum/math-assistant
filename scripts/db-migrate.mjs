@@ -70,27 +70,34 @@ async function main() {
   await client.connect();
 
   try {
-    for (const file of files) {
-      const sql = readFileSync(join(MIGRATIONS_DIR, file), 'utf8');
-      console.log(`> Applying ${file}`);
-      await client.query(sql);
-    }
+    await client.query('BEGIN');
+    try {
+      for (const file of files) {
+        const sql = readFileSync(join(MIGRATIONS_DIR, file), 'utf8');
+        console.log(`> Applying ${file}`);
+        await client.query(sql);
+      }
 
-    const email = env.BOOTSTRAP_TEACHER_EMAIL;
-    if (email) {
-      console.log(`> Upserting app_config.bootstrap_teacher_email = ${email}`);
-      await client.query(
-        `insert into public.app_config (key, value, updated_at)
-         values ('bootstrap_teacher_email', $1, now())
-         on conflict (key) do update
-           set value = excluded.value, updated_at = now()`,
-        [email],
-      );
-    } else {
-      console.warn('! BOOTSTRAP_TEACHER_EMAIL not set — skipping upsert (all new users will be students).');
-    }
+      const email = env.BOOTSTRAP_TEACHER_EMAIL;
+      if (email) {
+        console.log(`> Upserting app_config.bootstrap_teacher_email = ${email}`);
+        await client.query(
+          `insert into public.app_config (key, value, updated_at)
+           values ('bootstrap_teacher_email', $1, now())
+           on conflict (key) do update
+             set value = excluded.value, updated_at = now()`,
+          [email],
+        );
+      } else {
+        console.warn('! BOOTSTRAP_TEACHER_EMAIL not set — skipping upsert (all new users will be students).');
+      }
 
-    console.log('✓ Migrations applied.');
+      await client.query('COMMIT');
+      console.log('✓ Migrations applied.');
+    } catch (err) {
+      await client.query('ROLLBACK');
+      throw err;
+    }
   } finally {
     await client.end();
   }
