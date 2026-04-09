@@ -26,6 +26,7 @@
 Status: 대기
 <!-- Pointer Events + Apple Pencil pressure, undo 50MB/20개 캡, stroke JSON + PNG 제출 -->
 <!-- 특화 skill 후보 (가설): 없음 — Pointer Events는 단발 구현, 범용 tdd skill로 충분 -->
+<!-- Phase 2 경험: app/api/teacher/problems/ Route Handler 패턴(zod 파싱 + 재시도 래퍼)은 student 제출 API에도 재사용 가능 -->
 <!-- 모듈 CLAUDE.md 후보 (가설): components/canvas/CLAUDE.md (Pointer Events·pressure·undo 캡 50MB/20개 규칙) -->
 
 ## Phase 4: AI 채점 + 취약도 엔진
