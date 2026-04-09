@@ -1,5 +1,6 @@
 import { getAnthropicClient, MODELS } from './client';
 import { ExtractedProblemSchema, type ExtractedProblem } from './schemas';
+import { callWithRetry, parseJsonBlock } from './utils';
 
 /**
  * Claude Vision으로 문제 이미지에서 구조화된 JSON을 추출한다.
@@ -34,7 +35,7 @@ export async function extractProblemFromImage(
     '- 보기(①②③)가 있으면 statement 안에 줄바꿈으로 포함시킨다.',
   ].join('\n');
 
-  async function callOnce(): Promise<string> {
+  const rawText = await callWithRetry(async () => {
     const response = await client.messages.create({
       model: MODELS.opus,
       max_tokens: 2048,
@@ -60,42 +61,12 @@ export async function extractProblemFromImage(
       ],
     });
 
-    // Anthropic SDK 응답에서 text block만 추출
     const textBlock = response.content.find((b) => b.type === 'text');
-    if (!textBlock || textBlock.type !== 'text') {
+    if (!textBlock) {
       throw new Error('Claude response had no text block');
     }
     return textBlock.text;
-  }
+  });
 
-  let rawText: string;
-  try {
-    rawText = await callOnce();
-  } catch {
-    // 1회 재시도 (네트워크/일시적 실패 가정)
-    rawText = await callOnce();
-  }
-
-  // JSON 파싱
-  const jsonStart = rawText.indexOf('{');
-  const jsonEnd = rawText.lastIndexOf('}');
-  if (jsonStart === -1 || jsonEnd === -1) {
-    throw new Error(`Claude response did not contain JSON: ${rawText.slice(0, 200)}`);
-  }
-  const jsonText = rawText.slice(jsonStart, jsonEnd + 1);
-  let parsed: unknown;
-  try {
-    parsed = JSON.parse(jsonText);
-  } catch (err) {
-    throw new Error(`Invalid JSON from Claude: ${(err as Error).message}`);
-  }
-
-  // zod 검증
-  const result = ExtractedProblemSchema.safeParse(parsed);
-  if (!result.success) {
-    throw new Error(
-      `Claude response failed schema: ${result.error.message}`,
-    );
-  }
-  return result.data;
+  return parseJsonBlock(rawText, ExtractedProblemSchema);
 }

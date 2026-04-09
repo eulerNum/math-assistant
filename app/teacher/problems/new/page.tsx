@@ -1,16 +1,19 @@
 import { requireTeacher } from '@/lib/auth/session';
 import { loadCurriculumTree } from '@/lib/curriculum/server';
+import { DEFAULT_CURRICULUM_ID } from '@/lib/config/curriculum';
 import { NewProblemForm } from './NewProblemForm';
 
 export default async function NewProblemPage() {
   const teacher = await requireTeacher();
-  const tree = await loadCurriculumTree('middle_3-1');
+  const tree = await loadCurriculumTree(DEFAULT_CURRICULUM_ID);
 
   if (!tree) {
     return (
       <main className="p-8">
-        <h1 className="text-xl font-semibold">중3-1 커리큘럼이 없습니다</h1>
-        <p className="text-sm text-gray-600">마이그레이션/시드를 먼저 실행하세요.</p>
+        <h1 className="text-xl font-semibold">커리큘럼이 없습니다</h1>
+        <p className="text-sm text-gray-600">
+          마이그레이션/시드를 먼저 실행하세요 ({DEFAULT_CURRICULUM_ID}).
+        </p>
       </main>
     );
   }

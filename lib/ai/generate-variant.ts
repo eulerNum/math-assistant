@@ -1,5 +1,6 @@
 import { getAnthropicClient, MODELS } from './client';
 import { GeneratedVariantSchema, type GeneratedVariant } from './schemas';
+import { callWithRetry, parseJsonBlock } from './utils';
 
 /**
  * 기존 문제 statement를 기반으로 수치만 바뀐 변형 문제를 생성한다.
@@ -37,7 +38,7 @@ export async function generateVariant(
     .filter(Boolean)
     .join('\n');
 
-  async function callOnce(): Promise<string> {
+  const rawText = await callWithRetry(async () => {
     const response = await client.messages.create({
       model: MODELS.opus,
       max_tokens: 1024,
@@ -45,34 +46,11 @@ export async function generateVariant(
       messages: [{ role: 'user', content: userText }],
     });
     const textBlock = response.content.find((b) => b.type === 'text');
-    if (!textBlock || textBlock.type !== 'text') {
+    if (!textBlock) {
       throw new Error('Claude response had no text block');
     }
     return textBlock.text;
-  }
+  });
 
-  let rawText: string;
-  try {
-    rawText = await callOnce();
-  } catch {
-    rawText = await callOnce();
-  }
-
-  const jsonStart = rawText.indexOf('{');
-  const jsonEnd = rawText.lastIndexOf('}');
-  if (jsonStart === -1 || jsonEnd === -1) {
-    throw new Error(`Claude response did not contain JSON: ${rawText.slice(0, 200)}`);
-  }
-  const jsonText = rawText.slice(jsonStart, jsonEnd + 1);
-  let parsed: unknown;
-  try {
-    parsed = JSON.parse(jsonText);
-  } catch (err) {
-    throw new Error(`Invalid JSON from Claude: ${(err as Error).message}`);
-  }
-  const result = GeneratedVariantSchema.safeParse(parsed);
-  if (!result.success) {
-    throw new Error(`Claude response failed schema: ${result.error.message}`);
-  }
-  return result.data;
+  return parseJsonBlock(rawText, GeneratedVariantSchema);
 }
