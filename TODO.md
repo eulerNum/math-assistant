@@ -15,11 +15,12 @@
 <!-- 상세: docs/decisions/0001-phase-1-nextjs-supabase-auth.md, git history -->
 
 
-## Phase 2: 커리큘럼 + 문제 뱅크 (Teacher)
-Status: 대기
-<!-- curricula/chapters/problem_types CRUD + 이미지 업로드 → Claude Vision 추출 → 변형 생성 -->
-<!-- 특화 skill 후보 (가설): problem-import (이미지→Vision→zod→Storage→DB→변형 n개, 3회 반복 확인 후), curriculum-seed (중3-1/고1/고2 chapter·problem_type 시드) -->
-<!-- 모듈 CLAUDE.md 후보 (가설): supabase/CLAUDE.md (마이그레이션 순서·RLS 패턴·app_config), lib/ai/CLAUDE.md (Claude 호출 래퍼·모델 선택·zod 스키마 위치) -->
+## ~~Phase 2: 커리큘럼 + 문제 뱅크 (Teacher)~~ ✅
+<!-- 상세: docs/decisions/0002-phase-2-*.md, git history (commits 5d23a51..f256298) -->
+<!-- 검증 잔여: 실제 문제 10개+ 업로드, 3개에 수동 변형 1개+ — UI 스모크로 확인 -->
+<!-- Phase 1 후속 이월: proxy.ts matcher, preview magic link 스모크 → Phase 6 -->
+<!-- Data Growth follow-up: Phase 6 종료 시 실제 이미지 용량 실측 → ADR 기록 -->
+
 
 ## Phase 3: DrawingCanvas + 학생 풀이 플로우
 Status: 대기
