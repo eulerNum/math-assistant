@@ -15,6 +15,10 @@ export async function proxy(request: NextRequest) {
   return response;
 }
 
-export const proxyConfig = {
+// Next.js 16 proxy.ts expects the export to be named `config` (not `proxyConfig`).
+// With the wrong name the matcher is silently ignored and proxy runs on every
+// request — including static assets — wasting compute and sometimes touching
+// auth cookies on irrelevant paths.
+export const config = {
   matcher: ['/((?!_next/static|_next/image|favicon.ico|.*\\..*).*)'],
 };
