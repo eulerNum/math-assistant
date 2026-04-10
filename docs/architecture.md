@@ -17,11 +17,9 @@ math-assistant/
 │   └── api/teacher/problems/    # Route Handlers (Phase 2)
 │       ├── route.ts             # POST /api/teacher/problems (저장)
 │       └── [id]/route.ts        # POST /api/teacher/problems/[id] (변형 생성)
-├── components/                  # React 19 + TS 컴포넌트
-│   ├── canvas/                  # DrawingCanvas (Phase 3)
-│   ├── problem/                 # 문제 표시·변형 (Phase 2: NewProblemForm, GenerateVariantButton)
-│   ├── mastery/                 # 취약도 시각화 (Phase 5)
-│   └── ui/                      # 공통 UI 원자
+├── components/                  # Phase 3에서 생성 예정 (shadcn/ui 기반)
+│   └── ui/                      # shadcn/ui 공통 컴포넌트 + Layout shell
+│   # 현재: 컴포넌트는 app/ 내 colocated (NewProblemForm, GenerateVariantButton)
 ├── lib/
 │   ├── auth/
 │   │   ├── guards.ts            # assertRole() — 순수 함수, vitest 대상
@@ -34,7 +32,7 @@ math-assistant/
 │   ├── config/
 │   │   ├── site.ts              # getSiteUrl() — 클라이언트: window.location.origin, 서버: env fallback
 │   │   └── curriculum.ts        # DEFAULT_CURRICULUM_ID 상수 (Phase 2)
-│   ├── ai/                      # Anthropic SDK 래퍼 (Phase 2 구현 완료)
+│   ├── ai/                      # Anthropic SDK 래퍼 (보조 경로 — primary는 외부 LLM + 오프라인 생성)
 │   │   ├── client.ts            # Anthropic SDK 인스턴스
 │   │   ├── schemas.ts           # zod 스키마 중앙 정의 (추출·변형 공용)
 │   │   ├── extract-problem.ts   # Claude Vision 문제 텍스트 추출
@@ -112,8 +110,20 @@ math-assistant/
 
 Supabase Storage bucket `problem-images`: 경로 `{teacher_id}/{problem_id}.jpg` — RLS가 첫 segment = `auth.uid()` 강제.
 
-## Phase 2 — 문제 업로드 파이프라인
+## Phase 2 — 문제 등록 파이프라인
 
+### Primary path — 수동 텍스트 입력 (+ 외부 LLM 보조 전사)
+```
+teacher → /teacher/problems/new
+  → 텍스트 직접 입력 (statement, answer)
+    또는 문제 이미지를 외부 LLM에 붙여넣어 텍스트로 전사 후 입력
+  → (선택) 이미지도 함께 업로드 가능
+  → POST /api/teacher/problems
+      → DB insert (problems 테이블)
+  → redirect /teacher/problems/[id]
+```
+
+### Secondary path — Claude Vision 자동 추출
 ```
 teacher → /teacher/problems/new
   → 이미지 선택
@@ -125,7 +135,10 @@ teacher → /teacher/problems/new
       → zod 파싱 (lib/ai/schemas.ts) + 재시도 1회 (lib/ai/utils.ts)
       → DB insert (problems 테이블)
   → redirect /teacher/problems/[id]
+```
 
+### 변형 생성 (양 경로 공통)
+```
 teacher → /teacher/problems/[id]
   → GenerateVariantButton 클릭
   → POST /api/teacher/problems/[id]
@@ -135,11 +148,13 @@ teacher → /teacher/problems/[id]
   → 변형 목록 갱신
 ```
 
+> 참고: Vision 추출과 변형 생성의 Anthropic API 호출은 보조 경로. 비용 최소화를 위해 primary는 수동 입력 + 오프라인 생성.
+
 ## 인프라
 
 - **배포**: Vercel (설정: `vercel.ts`)
 - **DB/Auth**: Supabase — Vercel Marketplace 통합, 프로젝트 `supabase-amethyst-nest` (`ap-northeast-2`)
-- **AI**: Anthropic Claude — `claude-opus-4-6` (Vision·채점·변형) / `claude-haiku-4-5` (경량 채점) — Phase 2+
+- **AI**: 외부 LLM + 오프라인 스크립트 우선 (비용 최소화). Anthropic API(`claude-opus-4-6`/`claude-haiku-4-5`)는 optional upgrade path — `lib/ai/`에 래퍼 구현됨
 - **스키마 관리**: `scripts/db-migrate.mjs` (로컬 pg 직접 연결, `sslmode` 파라미터 제거 + `rejectUnauthorized: false`)
 
 ## Phase별 상태
@@ -147,11 +162,12 @@ teacher → /teacher/problems/[id]
 | Phase | 상태 | 주요 내용 |
 |-------|------|-----------|
 | 1 | 완료 | Next.js 16 + Supabase Auth scaffold, magic link, role guard |
-| 2 | 완료 | curriculum 시드, Claude Vision 문제 추출·변형, Storage 업로드 |
-| 3 | 대기 | DrawingCanvas (Pointer Events + Apple Pencil), undo 50MB/20개 캡, stroke JSON + PNG 제출 |
-| 4 | 대기 | `/api/submissions/grade`, `lib/mastery/calculate.ts` (가중평균), teacher 정정 플로우 |
-| 5 | 대기 | `lib/exam/generator.ts` 하이브리드 샘플링, MasteryHeatmap, 모의고사 결과 집계 |
-| 6 | 대기 | Safari + Apple Pencil 실기기 QA, Vercel prod 배포, RLS 최종 감사 |
+| 2 | 완료 | curriculum 시드, 문제 등록(수동 입력 primary + Vision 보조), Storage 업로드 |
+| 3 | 대기 | 디자인 시스템 + UI 리디자인 (shadcn/ui, 깔끔·미니멀 톤, 기존 페이지 전체) |
+| 4 | 대기 | DrawingCanvas (Pointer Events 표준, iPad + Galaxy Tab), undo 50MB/20개 캡, stroke JSON + PNG |
+| 5 | 대기 | 규칙 기반 채점 (API 호출 X), `lib/mastery/calculate.ts` (가중평균), teacher 정정 플로우 |
+| 6 | 대기 | `lib/exam/generator.ts` 하이브리드 샘플링, MasteryHeatmap, 모의고사 결과 집계 |
+| 7 | 대기 | 크로스 디바이스 QA (iPad Safari + Galaxy Tab Chrome), Vercel prod 배포, RLS 최종 감사 |
 
 ## 참고
 
