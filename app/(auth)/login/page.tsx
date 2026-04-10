@@ -19,7 +19,7 @@ function LoginForm() {
     const supabase = createClient();
     const { error: authError } = await supabase.auth.signInWithOtp({
       email,
-      options: { emailRedirectTo: `${getSiteUrl()}/auth/confirm` },
+      options: { emailRedirectTo: `${getSiteUrl()}/auth/callback` },
     });
     if (authError) {
       setStatus('error');

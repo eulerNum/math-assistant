@@ -12,3 +12,4 @@ build/
 .vercel
 .env*.local
 tsconfig.tsbuildinfo
+public/preview-variants.html
