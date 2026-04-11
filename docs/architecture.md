@@ -13,13 +13,21 @@ math-assistant/
 │   │       ├── page.tsx         # 문제 목록
 │   │       ├── new/             # 이미지 업로드 + Vision 추출 UI
 │   │       └── [id]/            # 문제 상세 + 변형 생성
-│   ├── student/home/            # student role 홈 (guard: assertRole)
-│   └── api/teacher/problems/    # Route Handlers (Phase 2)
-│       ├── route.ts             # POST /api/teacher/problems (저장)
-│       └── [id]/route.ts        # POST /api/teacher/problems/[id] (변형 생성)
-├── components/                  # Phase 3에서 생성 예정 (shadcn/ui 기반)
-│   └── ui/                      # shadcn/ui 공통 컴포넌트 + Layout shell
-│   # 현재: 컴포넌트는 app/ 내 colocated (NewProblemForm, GenerateVariantButton)
+│   ├── student/
+│   │   ├── home/                # student role 홈 (guard: assertRole)
+│   │   ├── assignments/         # 배정된 문제 목록 (Phase 3)
+│   │   └── solve/[id]/          # 풀이 페이지 — DrawingCanvas 통합 (Phase 3)
+│   └── api/
+│       ├── teacher/
+│       │   ├── problems/        # Route Handlers (Phase 2)
+│       │   │   ├── route.ts     # POST /api/teacher/problems (저장)
+│       │   │   └── [id]/route.ts # POST /api/teacher/problems/[id] (변형 생성)
+│       │   └── assignments/     # POST /api/teacher/assignments (배정) (Phase 3)
+│       └── student/
+│           └── submissions/     # POST /api/student/submissions (제출) (Phase 3)
+├── components/                  # Phase 3에서 생성
+│   └── DrawingCanvas.tsx        # Pointer Events 캔버스 (undo 50MB/20캡) (Phase 3)
+│   # 기존 app/ 내 colocated 컴포넌트: NewProblemForm, GenerateVariantButton
 ├── lib/
 │   ├── auth/
 │   │   ├── guards.ts            # assertRole() — 순수 함수, vitest 대상
@@ -83,7 +91,7 @@ math-assistant/
         → 불일치 → roleHomePath()로 redirect
 ```
 
-## 데이터 모델 (Phase 2 기준)
+## 데이터 모델 (Phase 3 기준)
 
 ### Phase 1 (auth)
 
@@ -109,6 +117,15 @@ math-assistant/
 계층 구조: `curricula → chapters → problem_types → problems → problem_variants`
 
 Supabase Storage bucket `problem-images`: 경로 `{teacher_id}/{problem_id}.jpg` — RLS가 첫 segment = `auth.uid()` 강제.
+
+### Phase 3 (assignments + submissions)
+
+| 테이블 | 설명 | RLS |
+|--------|------|-----|
+| `public.assignments` | teacher→student 문제 배정 (FK: problems/variants/students) | teacher: 본인 배정 CRUD, student: 본인 배정 read |
+| `public.submissions` | student 풀이 제출 (FK: assignments, stroke/drawing path) | student: 본인 제출 insert/read, teacher: 담당 student 제출 read |
+
+Supabase Storage bucket `submission-files`: 경로 `{student_id}/{submission_id}/strokes.json` + `drawing.png` — RLS가 첫 segment = `auth.uid()` 강제.
 
 ## Phase 2 — 문제 등록 파이프라인
 
@@ -163,10 +180,10 @@ teacher → /teacher/problems/[id]
 |-------|------|-----------|
 | 1 | 완료 | Next.js 16 + Supabase Auth scaffold, magic link, role guard |
 | 2 | 완료 | curriculum 시드, 문제 등록(수동 입력 primary + Vision 보조), Storage 업로드 |
-| 3 | 대기 | 디자인 시스템 + UI 리디자인 (shadcn/ui, 깔끔·미니멀 톤, 기존 페이지 전체) |
-| 4 | 대기 | DrawingCanvas (Pointer Events 표준, iPad + Galaxy Tab), undo 50MB/20개 캡, stroke JSON + PNG |
-| 5 | 대기 | 규칙 기반 채점 (API 호출 X), `lib/mastery/calculate.ts` (가중평균), teacher 정정 플로우 |
-| 6 | 대기 | `lib/exam/generator.ts` 하이브리드 샘플링, MasteryHeatmap, 모의고사 결과 집계 |
+| 3 | 진행 중 | DrawingCanvas (Pointer Events 표준, iPad + Galaxy Tab), undo 50MB/20개 캡, stroke JSON + PNG |
+| 4 | 대기 | 규칙 기반 채점 (API 호출 X), `lib/mastery/calculate.ts` (가중평균), teacher 정정 플로우 |
+| 5 | 대기 | `lib/exam/generator.ts` 하이브리드 샘플링, MasteryHeatmap, 모의고사 결과 집계 |
+| 6 | 대기 | 디자인 시스템 + UI 리디자인 (shadcn/ui, 깔끔·미니멀 톤, 기능 확정 후) |
 | 7 | 대기 | 크로스 디바이스 QA (iPad Safari + Galaxy Tab Chrome), Vercel prod 배포, RLS 최종 감사 |
 
 ## 참고

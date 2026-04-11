@@ -17,7 +17,7 @@
 
 ## 아키텍처
 - `app/` (Next.js 16 App Router): teacher/student/api 라우트 그룹 분리. 현재 컴포넌트는 `app/` 내 colocated.
-- `components/` (Phase 3에서 생성 예정): shadcn/ui 기반 공통 컴포넌트 + Layout shell
+- `components/` (Phase 3 신설): DrawingCanvas (Pointer Events 캔버스). shadcn/ui 기반 공통 컴포넌트 + Layout shell은 Phase 6에서 추가 예정
 - `lib/` (TS 서비스 레이어): ai/ (Anthropic SDK 래퍼 — 보조 경로), mastery/ (취약도 계산), exam/ (모의고사 생성), auth/ (role guards), supabase/ (client/server/types)
 - `supabase/` (SQL + 시드): migrations, seed (curriculum 초기 데이터)
 - `docs/`: architecture, decisions (ADR), plans (아카이브)
@@ -34,7 +34,7 @@
 - **역할**: teacher (문제 관리·채점 정정·모의고사 생성) / student (풀이 제출·본인 기록 열람)
 - **AI 전략**: 비용 최소화 우선. Vision 추출은 외부 LLM(ChatGPT 등)에서 전사 → 수동 입력. 변형·채점은 오프라인(스크립트/Claude Code 세션) 우선. Anthropic API(`claude-opus-4-6`/`claude-haiku-4-5`)는 optional upgrade path. `lib/ai/`는 보조 경로.
 - **핵심 용어**: curriculum(중3-1 등) → chapter(단원) → problem_type(유형) → problem(문제) → variant(수치 변형)
-- **주요 모델**: profiles / students / curricula+chapters+problem_types / problems / practice_sessions+submissions / mastery / exams+exam_items (Phase별 순차 기록 — Phase 1: profiles/students/app_config, Phase 2+: curriculum/문제/제출/취약도/모의고사)
+- **주요 모델**: profiles / students / curricula+chapters+problem_types / problems / assignments+submissions / mastery / exams+exam_items (Phase별 순차 기록 — Phase 1: profiles/students/app_config, Phase 2: curriculum/problems, Phase 3: assignments/submissions, Phase 4+: mastery/exams)
 - **취약도**: 최근 N=20 제출을 weight=0.85^(n-i) 가중평균, score ≥ 0.8 AND 최근 3개 중 ≥ 2개 정답 시 통과
 - **모의고사**: 하이브리드 — 기존 문제 70% + 신규 변형 30%, 취약 유형 과대표집 `(1 - score) + ε`
 - **디바이스**: iPad + Galaxy Tab 모두 지원. Pointer Events 표준만 사용, 벤더 특화 API 금지.

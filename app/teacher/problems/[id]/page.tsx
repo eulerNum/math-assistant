@@ -4,6 +4,7 @@ import { requireTeacher } from '@/lib/auth/session';
 import { createClient } from '@/lib/supabase/server';
 import { PROBLEM_IMAGES_BUCKET } from '@/lib/storage';
 import { GenerateVariantButton } from './GenerateVariantButton';
+import { AssignButton } from './AssignButton';
 
 type PageProps = { params: Promise<{ id: string }> };
 
@@ -66,6 +67,16 @@ export default async function ProblemDetailPage({ params }: PageProps) {
           </pre>
         </section>
       )}
+
+      <section className="mt-6">
+        <h2 className="text-sm font-medium text-gray-600">학생 배정</h2>
+        <div className="mt-2">
+          <AssignButton
+            problemId={problem.id}
+            variants={(variants ?? []).map((v) => ({ id: v.id, statement: v.statement }))}
+          />
+        </div>
+      </section>
 
       <section className="mt-6">
         <div className="flex items-center justify-between">
