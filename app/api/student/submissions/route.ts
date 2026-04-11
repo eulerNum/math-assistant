@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
+import { SUBMISSION_FILES_BUCKET } from '@/lib/storage';
 
 export async function POST(request: Request) {
   const supabase = await createClient();
@@ -53,7 +54,7 @@ export async function POST(request: Request) {
 
   const strokesBuffer = await strokesJson.arrayBuffer();
   const { error: strokeUploadError } = await supabase.storage
-    .from('submission-files')
+    .from(SUBMISSION_FILES_BUCKET)
     .upload(strokePath, strokesBuffer, { contentType: 'application/json' });
 
   if (strokeUploadError) {
@@ -65,7 +66,7 @@ export async function POST(request: Request) {
 
   const drawingBuffer = await drawingPng.arrayBuffer();
   const { error: drawingUploadError } = await supabase.storage
-    .from('submission-files')
+    .from(SUBMISSION_FILES_BUCKET)
     .upload(drawingPath, drawingBuffer, { contentType: 'image/png' });
 
   if (drawingUploadError) {
