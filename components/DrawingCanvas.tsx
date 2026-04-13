@@ -196,17 +196,21 @@ export default function DrawingCanvas({ width, height, onSubmit }: DrawingCanvas
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', userSelect: 'none' }}>
       <div style={{ display: 'flex', gap: '8px' }}>
-        <button onClick={handleUndo} disabled={undoableStrokes.length === 0} type="button">
-          Undo
+        <button onClick={handleUndo} disabled={undoableStrokes.length === 0} type="button"
+          className="rounded border border-gray-300 px-3 py-1.5 text-sm hover:bg-gray-100 disabled:opacity-40">
+          되돌리기
         </button>
-        <button onClick={handleRedo} disabled={redoStack.length === 0} type="button">
-          Redo
+        <button onClick={handleRedo} disabled={redoStack.length === 0} type="button"
+          className="rounded border border-gray-300 px-3 py-1.5 text-sm hover:bg-gray-100 disabled:opacity-40">
+          다시실행
         </button>
-        <button onClick={handleClear} type="button">
-          Clear
+        <button onClick={handleClear} type="button"
+          className="rounded border border-gray-300 px-3 py-1.5 text-sm hover:bg-gray-100">
+          지우기
         </button>
-        <button onClick={handleSubmit} type="button">
-          Submit
+        <button onClick={handleSubmit} type="button"
+          className="rounded bg-black px-4 py-1.5 text-sm text-white hover:bg-gray-800">
+          제출
         </button>
       </div>
       <canvas
