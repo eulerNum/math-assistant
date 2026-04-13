@@ -81,6 +81,24 @@ export default function SolveForm({ assignmentId, statement }: Props) {
         <p className="mb-4 text-sm text-red-600">{error}</p>
       )}
 
+      {/* Answer input — before canvas so student fills answer then hits Submit */}
+      {!result && (
+        <div className="mb-4">
+          <label className="mb-1 block text-sm font-medium text-gray-700" htmlFor="student-answer">
+            답
+          </label>
+          <input
+            id="student-answer"
+            type="text"
+            value={studentAnswer}
+            onChange={e => setStudentAnswer(e.target.value)}
+            placeholder="답을 입력하세요"
+            className="w-full rounded border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+            disabled={status === 'submitting'}
+          />
+        </div>
+      )}
+
       {/* Canvas area with overlay when result is shown */}
       <div className="relative">
         <DrawingCanvas
@@ -96,24 +114,6 @@ export default function SolveForm({ assignmentId, statement }: Props) {
           />
         )}
       </div>
-
-      {/* Answer input */}
-      {!result && (
-        <div className="mt-4">
-          <label className="mb-1 block text-sm font-medium text-gray-700" htmlFor="student-answer">
-            답
-          </label>
-          <input
-            id="student-answer"
-            type="text"
-            value={studentAnswer}
-            onChange={e => setStudentAnswer(e.target.value)}
-            placeholder="답을 입력하세요"
-            className="w-full rounded border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-            disabled={status === 'submitting'}
-          />
-        </div>
-      )}
 
       {status === 'submitting' && (
         <p className="mt-3 text-sm text-gray-500">제출 중…</p>

@@ -1,33 +1,21 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import { createClient } from '@/lib/supabase/client';
+import { useState } from 'react';
 
-type Student = { id: string; grade: string | null; note: string | null };
+type Student = { id: string; grade: string | null; note: string | null; email: string | null };
 type Variant = { id: string; statement: string; approved: boolean };
 
 type Props = {
   problemId: string;
+  students: Student[];
   variants: Variant[];
 };
 
-export function AssignButton({ problemId, variants }: Props) {
-  const [students, setStudents] = useState<Student[]>([]);
+export function AssignButton({ problemId, variants, students }: Props) {
   const [selectedStudentId, setSelectedStudentId] = useState('');
   const [selectedVariantId, setSelectedVariantId] = useState('');
   const [status, setStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
   const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    const supabase = createClient();
-    supabase
-      .from('students')
-      .select('id, grade, note')
-      .order('grade')
-      .then(({ data }) => {
-        if (data) setStudents(data);
-      });
-  }, []);
 
   async function onAssign() {
     if (!selectedStudentId) return;
@@ -75,7 +63,7 @@ export function AssignButton({ problemId, variants }: Props) {
           <option value="">학생 선택</option>
           {students.map((s) => (
             <option key={s.id} value={s.id}>
-              {s.grade ?? '학년 미설정'}{s.note ? ` — ${s.note}` : ''}
+              {s.email ?? '이메일 없음'}{s.note ? ` — ${s.note}` : ''}
             </option>
           ))}
         </select>

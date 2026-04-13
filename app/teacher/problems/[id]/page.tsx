@@ -2,6 +2,7 @@ import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { requireTeacher } from '@/lib/auth/session';
 import { createClient } from '@/lib/supabase/server';
+import { createAdminClient } from '@/lib/supabase/admin';
 import { PROBLEM_IMAGES_BUCKET } from '@/lib/storage';
 import { GenerateVariantButton } from './GenerateVariantButton';
 import { AssignButton } from './AssignButton';
@@ -37,6 +38,19 @@ export default async function ProblemDetailPage({ params }: PageProps) {
     .select('id, statement, answer, generated_by, created_at, approved')
     .eq('problem_id', problem.id)
     .order('created_at', { ascending: false });
+
+  const admin = createAdminClient();
+  const { data: studentRows } = await admin
+    .from('students')
+    .select('id, grade, note, profiles!profile_id(email)')
+    .eq('teacher_id', teacher.id);
+
+  const studentList = (studentRows ?? []).map((s) => {
+    const profile = !Array.isArray(s.profiles)
+      ? (s.profiles as { email: string | null } | null)
+      : null;
+    return { id: s.id as string, grade: s.grade as string | null, note: s.note as string | null, email: profile?.email ?? null };
+  });
 
   return (
     <main className="mx-auto max-w-3xl p-8">
@@ -75,6 +89,7 @@ export default async function ProblemDetailPage({ params }: PageProps) {
           <AssignButton
             problemId={problem.id}
             variants={(variants ?? []).map((v) => ({ id: v.id, statement: v.statement, approved: v.approved }))}
+            students={studentList}
           />
         </div>
       </section>
