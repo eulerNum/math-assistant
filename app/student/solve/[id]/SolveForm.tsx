@@ -10,6 +10,7 @@ type GradingResult = {
   passed: boolean;
   correct_answer: string | null;
   consecutive_correct: number;
+  next_assignment_id: string | null;
 };
 
 type Props = {
@@ -60,6 +61,7 @@ export default function SolveForm({ assignmentId, statement }: Props) {
         passed: data.passed,
         correct_answer: data.correct_answer,
         consecutive_correct: data.consecutive_correct,
+        next_assignment_id: data.next_assignment_id ?? null,
       });
       setStatus('idle');
     } catch (err) {
@@ -150,13 +152,26 @@ export default function SolveForm({ assignmentId, statement }: Props) {
             </div>
           ) : (
             <div className="mt-4">
-              <button
-                type="button"
-                onClick={() => router.refresh()}
-                className="rounded bg-gray-800 px-4 py-2 text-sm text-white hover:bg-gray-700"
-              >
-                다음 문제
-              </button>
+              {result.next_assignment_id ? (
+                <button
+                  type="button"
+                  onClick={() => router.push(`/student/solve/${result.next_assignment_id}`)}
+                  className="rounded bg-gray-800 px-4 py-2 text-sm text-white hover:bg-gray-700"
+                >
+                  다음 문제
+                </button>
+              ) : (
+                <div>
+                  <p className="mb-2 text-sm text-gray-500">더 이상 변형이 없습니다.</p>
+                  <button
+                    type="button"
+                    onClick={() => router.push('/student/assignments')}
+                    className="rounded bg-gray-600 px-4 py-2 text-sm text-white hover:bg-gray-500"
+                  >
+                    돌아가기
+                  </button>
+                </div>
+              )}
             </div>
           )}
         </div>

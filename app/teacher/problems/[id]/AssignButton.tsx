@@ -3,17 +3,14 @@
 import { useState } from 'react';
 
 type Student = { id: string; grade: string | null; note: string | null; email: string | null };
-type Variant = { id: string; statement: string; approved: boolean };
 
 type Props = {
   problemId: string;
   students: Student[];
-  variants: Variant[];
 };
 
-export function AssignButton({ problemId, variants, students }: Props) {
+export function AssignButton({ problemId, students }: Props) {
   const [selectedStudentId, setSelectedStudentId] = useState('');
-  const [selectedVariantId, setSelectedVariantId] = useState('');
   const [status, setStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
   const [error, setError] = useState<string | null>(null);
 
@@ -29,7 +26,6 @@ export function AssignButton({ problemId, variants, students }: Props) {
         body: JSON.stringify({
           problem_id: problemId,
           student_id: selectedStudentId,
-          ...(selectedVariantId ? { variant_id: selectedVariantId } : {}),
         }),
       });
 
@@ -68,38 +64,18 @@ export function AssignButton({ problemId, variants, students }: Props) {
           ))}
         </select>
 
-        {variants.filter((v) => v.approved).length > 0 && (
-          <select
-            value={selectedVariantId}
-            onChange={(e) => {
-              setSelectedVariantId(e.target.value);
-              setStatus('idle');
-            }}
-            className="rounded border px-2 py-1 text-sm"
-          >
-            <option value="">원본 문제</option>
-            {variants
-              .filter((v) => v.approved)
-              .map((v, i) => (
-                <option key={v.id} value={v.id}>
-                  변형 {i + 1}
-                </option>
-              ))}
-          </select>
-        )}
-
         <button
           type="button"
           onClick={() => void onAssign()}
           disabled={!selectedStudentId || status === 'loading'}
-          className="rounded border border-black px-3 py-1 text-sm disabled:opacity-50"
+          className="rounded bg-black px-3 py-1 text-sm text-white disabled:opacity-50"
         >
           {status === 'loading' ? '배정 중…' : '배정'}
         </button>
       </div>
 
       {status === 'success' && (
-        <p className="text-xs text-green-600">배정 완료</p>
+        <p className="text-xs text-green-600">배정 완료 (첫 번째 승인된 변형이 자동 선택됨)</p>
       )}
       {status === 'error' && error && (
         <p className="text-xs text-red-600">{error}</p>

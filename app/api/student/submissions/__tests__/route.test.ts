@@ -63,6 +63,34 @@ vi.mock('@/lib/supabase/server', () => ({
   createClient: vi.fn(() => Promise.resolve(supabaseMock)),
 }));
 
+const adminMockFrom = vi.fn(() => ({
+  select: vi.fn(() => ({
+    eq: vi.fn(() => ({
+      eq: vi.fn(() => ({
+        order: vi.fn().mockResolvedValue({ data: [], error: null }),
+      })),
+      order: vi.fn(() => ({
+        limit: vi.fn(() => ({
+          maybeSingle: vi.fn().mockResolvedValue({ data: null, error: null }),
+        })),
+      })),
+    })),
+  })),
+  insert: vi.fn(() => ({
+    select: vi.fn(() => ({
+      single: vi.fn().mockResolvedValue({ data: null, error: null }),
+    })),
+  })),
+}));
+
+vi.mock('@/lib/supabase/admin', () => ({
+  createAdminClient: vi.fn(() => ({ from: adminMockFrom })),
+}));
+
+vi.mock('@/lib/ai/generate-variant', () => ({
+  generateVariant: vi.fn().mockResolvedValue({ statement: 'test', answer: '1' }),
+}));
+
 vi.mock('next/navigation', () => ({
   redirect: vi.fn(),
 }));

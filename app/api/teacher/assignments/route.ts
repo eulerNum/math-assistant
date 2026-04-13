@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
 import { createClient } from '@/lib/supabase/server';
+import { createAdminClient } from '@/lib/supabase/admin';
 import { requireTeacher } from '@/lib/auth/session';
 
 const BodySchema = z.object({
@@ -19,12 +20,32 @@ export async function POST(request: Request) {
   }
 
   const supabase = await createClient();
+  const admin = createAdminClient();
 
-  if (parsed.data.variant_id) {
+  let variantId = parsed.data.variant_id ?? null;
+
+  // If no variant specified, auto-select first approved variant
+  if (!variantId) {
+    const { data: firstVariant } = await admin
+      .from('problem_variants')
+      .select('id')
+      .eq('problem_id', parsed.data.problem_id)
+      .eq('approved', true)
+      .order('created_at', { ascending: true })
+      .limit(1)
+      .maybeSingle();
+
+    if (firstVariant) {
+      variantId = firstVariant.id;
+    }
+  }
+
+  // Validate variant if provided
+  if (variantId) {
     const { data: variant } = await supabase
       .from('problem_variants')
       .select('id, approved')
-      .eq('id', parsed.data.variant_id)
+      .eq('id', variantId)
       .eq('problem_id', parsed.data.problem_id)
       .maybeSingle();
 
@@ -49,7 +70,7 @@ export async function POST(request: Request) {
       problem_id: parsed.data.problem_id,
       student_id: parsed.data.student_id,
       teacher_id: teacher.id,
-      variant_id: parsed.data.variant_id ?? null,
+      variant_id: variantId,
     })
     .select('id')
     .single();

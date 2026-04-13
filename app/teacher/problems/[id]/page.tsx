@@ -88,7 +88,6 @@ export default async function ProblemDetailPage({ params }: PageProps) {
         <div className="mt-2">
           <AssignButton
             problemId={problem.id}
-            variants={(variants ?? []).map((v) => ({ id: v.id, statement: v.statement, approved: v.approved }))}
             students={studentList}
           />
         </div>
