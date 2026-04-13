@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { createClient } from '@/lib/supabase/client';
 
 type Student = { id: string; grade: string | null; note: string | null };
-type Variant = { id: string; statement: string };
+type Variant = { id: string; statement: string; approved: boolean };
 
 type Props = {
   problemId: string;
@@ -80,7 +80,7 @@ export function AssignButton({ problemId, variants }: Props) {
           ))}
         </select>
 
-        {variants.length > 0 && (
+        {variants.filter((v) => v.approved).length > 0 && (
           <select
             value={selectedVariantId}
             onChange={(e) => {
@@ -90,11 +90,13 @@ export function AssignButton({ problemId, variants }: Props) {
             className="rounded border px-2 py-1 text-sm"
           >
             <option value="">원본 문제</option>
-            {variants.map((v, i) => (
-              <option key={v.id} value={v.id}>
-                변형 {i + 1}
-              </option>
-            ))}
+            {variants
+              .filter((v) => v.approved)
+              .map((v, i) => (
+                <option key={v.id} value={v.id}>
+                  변형 {i + 1}
+                </option>
+              ))}
           </select>
         )}
 
