@@ -26,52 +26,44 @@
 <!-- Turbopack 공백 경로 fix: next.config.ts resolveAlias 추가 -->
 <!-- 발견: 매직 링크 Auth가 실사용에 부적합 → 사용자 노트에 기록 -->
 
-## Phase 3: DrawingCanvas + 학생 풀이 플로우
-Status: 진행 중
-<!-- Pointer Events 표준만 (Apple Pencil + S Pen 모두), undo 50MB/20개 캡 -->
-<!-- stroke JSON = 재생/분석/undo용 canonical data, PNG = 썸네일/빠른 렌더/teacher 확인용 snapshot -->
-<!-- 디바이스: iPad Safari + Galaxy Tab Chrome/Samsung Internet -->
-<!-- Phase 2 경험: app/api/teacher/problems/ Route Handler 패턴(zod 파싱 + 재시도 래퍼)은 student 제출 API에도 재사용 가능 -->
-
-### Requirements
-- **범위**:
-  - DrawingCanvas 컴포넌트 (Pointer Events 표준, undo 50MB/20개 캡)
-  - student 풀이 페이지 (배정된 문제 목록 → 문제 선택 → 필기 풀이 → 제출)
-  - 제출 API (stroke JSON + PNG → Supabase Storage, submission 레코드 → DB)
-  - assignments + submissions DB 테이블 + RLS
-  - 기존 `/teacher/problems/[id]`에 "학생에게 배정" 버튼 추가
-  - teacher 확인 뷰는 Phase 4 범위
-- **성공기준**:
-  - `npm run build` + `npm run lint` + `npx vitest run` 통과
-  - DrawingCanvas Vitest 단위 테스트 추가
-  - Vercel preview 수동 스모크: student 로그인 → 배정 문제 선택 → 필기 → 제출
-  - 제출 후 Supabase Storage에 stroke JSON + PNG 저장 확인
-  - 제출 후 submissions 테이블에 레코드 생성 확인
-- **제약**:
-  - Pointer Events API만 사용 (벤더 특화 API 금지)
-  - undo 스택: 50MB / 20개 캡
-  - stroke JSON = canonical, PNG = snapshot
-  - 전부 Supabase Storage + DB — 브라우저 저장소 미사용
-- **우선순위**: 기능 동작 > 디자인 (디자인은 Phase 6)
-- **의존성**:
-  - Auth: 개발 중 magic link 사용, Auth 개선(이메일+비번 또는 PIN)은 Phase 7 QA 전까지 별도 처리
-  - Phase 2 DB 스키마(problems, problem_variants) 위에 assignments/submissions 추가
-- **UX**:
-  - teacher가 문제 상세 페이지에서 개별 배정
-  - student는 배정된 문제 목록만 표시, 선택하면 Canvas 풀이 화면 진입
-  - 운영 의도: 유형별 변형 2개 무오류 통과까지 (규칙 변경 가능)
-  - 통과 판정 로직은 assignments에 하드코딩하지 않음 — Phase 4 mastery 엔진에서 처리
-- **데이터 성장**:
-  - 1년 후 최대 크기: ~500MB
-  - 저장 위치: Supabase Storage + DB (서버)
-  - 글로벌 정책 근거: "성장 데이터 → 서버 DB / 클라우드" (글로벌 CLAUDE.md §브라우저 저장소 선택)
+## ~~Phase 3: DrawingCanvas + 학생 풀이 플로우~~ ✅
+<!-- 상세: docs/decisions/0003-phase-3-drawing-canvas-student-flow.md, git history (commits 47e60e7..6d29e45) -->
+<!-- committed/undoable strokes 분리로 undo 캡 시각 버그 해결 -->
+<!-- Supabase join Array.isArray guard 패턴은 Phase 4에서 supabase gen types 도입으로 해소 예정 -->
 
 ## Phase 4: 채점 + 취약도 엔진
-Status: 대기
+Status: 진행 중
 <!-- 규칙 기반 채점 3단계: 1차 MVP=정답 일치/부분점수 없음/teacher override, 2차=키워드·단계 기반 부분점수, 3차=선택적 AI 보조 피드백 -->
 <!-- lib/mastery/calculate.ts (Vitest 단위 테스트), teacher 정정 플로우 -->
 <!-- API 연동은 optional upgrade path로만 설계 (런타임 API 호출 X) -->
-<!-- 모듈 CLAUDE.md 후보 (가설): lib/mastery/CLAUDE.md (weight=0.85^n 수식, 경계 케이스) -->
+<!-- Phase 3 이월: teacher 채점·확인 UI (submission PNG 뷰어 포함), Array.isArray guard → supabase gen types Phase 7 이월 -->
+<!-- 특화 skill 후보 (가설): lib/mastery/CLAUDE.md (weight=0.85^n 수식, 경계 케이스) — Phase 4 구현 시 판단 -->
+
+### Steps
+- [x] Step 1: DB Migration — `submissions.is_correct` + `problem_variants.approved` (dev-agent/worktree)
+- [x] Step 2: `lib/mastery/calculate.ts` 순수 함수 + Vitest 테스트 (dev-agent/worktree)
+- [x] Step 3: 자동 채점 API + 학생 순차 풀이 루프 (dev-agent/worktree)
+- [x] Step 4: 변형 승인(approved) 토글 + 필터 (dev-agent/worktree)
+- [x] Step 5: Teacher dashboard — 제출물·배정·숙련도 + 채점 정정 (dev-agent/worktree)
+
+### Requirements
+- **범위**: 자동 채점(정답 문자열 비교, 부분점수 없음) + teacher override + mastery 엔진(`lib/mastery/calculate.ts`) + teacher dashboard(제출물·배정현황·숙련도 모니터링 + 채점 정정) + 학생 풀이 루프(순차 출제→즉시 채점→연속 2정답→통과). supabase gen types는 Phase 7 이월.
+- **성공기준**:
+  - `lib/mastery/calculate.ts` Vitest 단위 테스트 전체 통과
+  - 자동 채점 로직 테스트 통과
+  - Vercel preview 수동 스모크 1회 (teacher 배정 → student 순차 풀이·즉시 채점·연속 2정답 통과 → teacher dashboard에서 숙련도 확인)
+- **제약**: 런타임 API 호출 X, 지속 데이터 전부 Supabase DB
+- **우선순위**: 학생 자동 채점 루프 → mastery 엔진 → teacher dashboard 순
+- **의존성**: Phase 3 완료 (assignments/submissions 테이블, DrawingCanvas, Storage)
+- **UX**:
+  - 변형: 미리 ~3개 생성 + teacher 승인 후 학생에게 공개
+  - 학생: 순차 풀이 → 제출 즉시 채점 → 캔버스 읽기전용 유지 + 하단 결과(정답/오답, 연속 카운터) → 오답 시 정답만 표시 + 원본 문제·풀이 버튼으로 열람 → 다음 변형 → 연속 2정답 시 통과
+  - Teacher: dashboard에서 제출물 목록·배정 현황·숙련도 조회 + 채점 정정(override → mastery 재계산, 이미 통과한 배정은 번복 안 함)
+- **스키마 변경**: submissions에 `is_correct` 필드 추가, 연속 정답은 최근 2건 submission 조회로 판정. problem_variants에 `approved` 필드 추가 (teacher 승인 게이트)
+- **데이터 성장**:
+  - 1년 후 최대 크기: ~수십 KB (1:1 과외, 채점 결과 + mastery 레코드)
+  - 저장 위치: Supabase DB
+  - 글로벌 정책 근거: "지속 데이터는 전부 Supabase" (CLAUDE.md §절대 규칙)
 
 ## Phase 5: 모의고사 생성 + 취약도 시각화
 Status: 대기

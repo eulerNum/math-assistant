@@ -22,7 +22,9 @@ export default async function SolvePage({ params }: PageProps) {
 
   const { data: assignment } = await supabase
     .from('assignments')
-    .select('id, status, variant_id, student_id, problems(statement), problem_variants(statement)')
+    .select(
+      'id, status, variant_id, student_id, problems(statement), problem_variants(statement)',
+    )
     .eq('id', id)
     .maybeSingle();
 

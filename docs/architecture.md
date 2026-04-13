@@ -174,21 +174,51 @@ teacher → /teacher/problems/[id]
 - **AI**: 외부 LLM + 오프라인 스크립트 우선 (비용 최소화). Anthropic API(`claude-opus-4-6`/`claude-haiku-4-5`)는 optional upgrade path — `lib/ai/`에 래퍼 구현됨
 - **스키마 관리**: `scripts/db-migrate.mjs` (로컬 pg 직접 연결, `sslmode` 파라미터 제거 + `rejectUnauthorized: false`)
 
+## Phase 3 — 학생 풀이 플로우
+
+```
+teacher → /teacher/problems/[id]
+  → "학생에게 배정" 버튼 클릭
+  → POST /api/teacher/assignments
+      → assignments 테이블 insert (student_id, problem_id, variant_id)
+
+student → /student/assignments
+  → 배정된 문제 목록 조회 (assignments JOIN problems)
+  → 문제 선택
+
+student → /student/solve/[id]
+  → DrawingCanvas (Pointer Events 전용)
+      → committed strokes (영구) + undoable strokes (최근 20개, 50MB 캡) 분리
+      → 획 추가 시: undoable 캡 초과분은 committed로 이동 (캔버스 유지, undo 제외)
+  → 제출 버튼 클릭
+  → POST /api/student/submissions
+      → stroke JSON → Supabase Storage: {student_id}/{submission_id}/strokes.json
+      → Canvas.toDataURL() → PNG → Supabase Storage: {student_id}/{submission_id}/drawing.png
+      → submissions 테이블 insert (assignment_id, stroke_path, drawing_path)
+  → 완료 화면
+```
+
+> Pointer Events 표준만 사용 — Apple Pencil(iPad Safari), S Pen(Galaxy Tab Chrome) 모두 동작.
+> stroke JSON = canonical data (재생·분석·undo용), PNG = snapshot (teacher 빠른 확인용).
+
 ## Phase별 상태
 
 | Phase | 상태 | 주요 내용 |
 |-------|------|-----------|
 | 1 | 완료 | Next.js 16 + Supabase Auth scaffold, magic link, role guard |
 | 2 | 완료 | curriculum 시드, 문제 등록(수동 입력 primary + Vision 보조), Storage 업로드 |
-| 3 | 진행 중 | DrawingCanvas (Pointer Events 표준, iPad + Galaxy Tab), undo 50MB/20개 캡, stroke JSON + PNG |
+| 3 | 완료 | DrawingCanvas (Pointer Events 표준, iPad + Galaxy Tab), undo 50MB/20개 캡, stroke JSON + PNG 제출 |
 | 4 | 대기 | 규칙 기반 채점 (API 호출 X), `lib/mastery/calculate.ts` (가중평균), teacher 정정 플로우 |
 | 5 | 대기 | `lib/exam/generator.ts` 하이브리드 샘플링, MasteryHeatmap, 모의고사 결과 집계 |
-| 6 | 대기 | 디자인 시스템 + UI 리디자인 (shadcn/ui, 깔끔·미니멀 톤, 기능 확정 후) |
+| 6 | 대기 | 디자인 시스템 + UI 리디자인 (shadcn/ui, 깔끔·미니멀 톤, 기능 확정 후) — 기능 완성 후로 의도적 후치 |
 | 7 | 대기 | 크로스 디바이스 QA (iPad Safari + Galaxy Tab Chrome), Vercel prod 배포, RLS 최종 감사 |
+
+> Phase 순서 변경: 디자인(shadcn/ui 도입)은 원래 Phase 3 계획에 있었으나, "기능이 확정돼야 디자인 결정이 쉽다"는 판단으로 Phase 6으로 후치됨. 관련 결정: 사용자 노트 참조 (`docs/../TODO.md §사용자 노트`).
 
 ## 참고
 
 - 시행착오·결정 이유: [`docs/decisions/`](decisions/)
 - Phase 1 상세 결정: [`docs/decisions/0001-phase-1-nextjs-supabase-auth.md`](decisions/0001-phase-1-nextjs-supabase-auth.md)
 - Phase 2 상세 결정: [`docs/decisions/0002-phase-2-curriculum-and-problems.md`](decisions/0002-phase-2-curriculum-and-problems.md)
+- Phase 3 상세 결정: [`docs/decisions/0003-phase-3-drawing-canvas-student-flow.md`](decisions/0003-phase-3-drawing-canvas-student-flow.md)
 - 초기 설계 초안: `~/.claude/plans/velvet-wishing-naur.md`

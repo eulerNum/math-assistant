@@ -5,6 +5,7 @@ import { createClient } from '@/lib/supabase/server';
 import { PROBLEM_IMAGES_BUCKET } from '@/lib/storage';
 import { GenerateVariantButton } from './GenerateVariantButton';
 import { AssignButton } from './AssignButton';
+import { ApproveVariantButton } from './ApproveVariantButton';
 
 type PageProps = { params: Promise<{ id: string }> };
 
@@ -33,7 +34,7 @@ export default async function ProblemDetailPage({ params }: PageProps) {
 
   const { data: variants } = await supabase
     .from('problem_variants')
-    .select('id, statement, answer, generated_by, created_at')
+    .select('id, statement, answer, generated_by, created_at, approved')
     .eq('problem_id', problem.id)
     .order('created_at', { ascending: false });
 
@@ -73,7 +74,7 @@ export default async function ProblemDetailPage({ params }: PageProps) {
         <div className="mt-2">
           <AssignButton
             problemId={problem.id}
-            variants={(variants ?? []).map((v) => ({ id: v.id, statement: v.statement }))}
+            variants={(variants ?? []).map((v) => ({ id: v.id, statement: v.statement, approved: v.approved }))}
           />
         </div>
       </section>
@@ -87,7 +88,10 @@ export default async function ProblemDetailPage({ params }: PageProps) {
           <ul className="mt-3 space-y-3">
             {variants.map((v) => (
               <li key={v.id} className="rounded border p-3 text-sm">
-                <pre className="whitespace-pre-wrap">{v.statement}</pre>
+                <div className="flex items-start justify-between gap-2">
+                  <pre className="whitespace-pre-wrap">{v.statement}</pre>
+                  <ApproveVariantButton variantId={v.id} initialApproved={v.approved} />
+                </div>
                 {v.answer && (
                   <p className="mt-2 text-xs text-gray-500">정답: {v.answer}</p>
                 )}

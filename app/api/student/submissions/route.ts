@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import { SUBMISSION_FILES_BUCKET } from '@/lib/storage';
+import { checkAnswer } from '@/lib/grading/check';
 
 export async function POST(request: Request) {
   const supabase = await createClient();
@@ -27,6 +28,7 @@ export async function POST(request: Request) {
   const assignmentId = formData.get('assignment_id');
   const strokesJson = formData.get('strokes_json');
   const drawingPng = formData.get('drawing_png');
+  const studentAnswerRaw = formData.get('student_answer');
 
   if (
     !assignmentId ||
@@ -37,9 +39,13 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
   }
 
+  const studentAnswer = typeof studentAnswerRaw === 'string' ? studentAnswerRaw : '';
+
   const { data: assignment, error: assignmentError } = await supabase
     .from('assignments')
-    .select('id, student_id, students(profile_id)')
+    .select(
+      'id, student_id, problem_id, students(profile_id), problems(answer), problem_variants(answer)',
+    )
     .eq('id', assignmentId)
     .single();
 
@@ -47,6 +53,17 @@ export async function POST(request: Request) {
   if (assignmentError || !assignment || students?.profile_id !== user.id) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
   }
+
+  // Resolve correct answer: variant takes priority over original problem
+  const variantAnswer = !Array.isArray(assignment.problem_variants)
+    ? (assignment.problem_variants as { answer: string } | null)?.answer ?? null
+    : null;
+  const problemAnswer = !Array.isArray(assignment.problems)
+    ? (assignment.problems as { answer: string } | null)?.answer ?? null
+    : null;
+  const correctAnswer = variantAnswer ?? problemAnswer ?? null;
+
+  const isCorrect = correctAnswer !== null ? checkAnswer(studentAnswer, correctAnswer) : false;
 
   const submissionId = crypto.randomUUID();
   const strokePath = `${user.id}/${submissionId}/strokes.json`;
@@ -81,6 +98,8 @@ export async function POST(request: Request) {
     assignment_id: assignmentId,
     stroke_path: strokePath,
     drawing_path: drawingPath,
+    student_answer: studentAnswer,
+    is_correct: isCorrect,
   });
 
   if (insertError) {
@@ -102,5 +121,43 @@ export async function POST(request: Request) {
     );
   }
 
-  return NextResponse.json({ id: submissionId }, { status: 201 });
+  // Consecutive correct check: find latest 2 submissions for the same problem_id
+  const problemId = assignment.problem_id as string;
+  const { data: siblingAssignments } = await supabase
+    .from('assignments')
+    .select('id')
+    .eq('problem_id', problemId)
+    .eq('student_id', assignment.student_id);
+
+  const siblingIds = (siblingAssignments ?? []).map((a: { id: string }) => a.id);
+
+  let consecutiveCorrect = 0;
+  let passed = false;
+
+  if (siblingIds.length > 0) {
+    const { data: recentSubmissions } = await supabase
+      .from('submissions')
+      .select('is_correct')
+      .in('assignment_id', siblingIds)
+      .order('submitted_at', { ascending: false })
+      .limit(2);
+
+    if (recentSubmissions && recentSubmissions.length > 0) {
+      consecutiveCorrect = recentSubmissions.filter(
+        (s: { is_correct: boolean | null }) => s.is_correct === true,
+      ).length;
+      passed = consecutiveCorrect >= 2;
+    }
+  }
+
+  return NextResponse.json(
+    {
+      id: submissionId,
+      is_correct: isCorrect,
+      passed,
+      correct_answer: isCorrect ? null : correctAnswer,
+      consecutive_correct: consecutiveCorrect,
+    },
+    { status: 201 },
+  );
 }
