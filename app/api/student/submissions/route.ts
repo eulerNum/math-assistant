@@ -175,7 +175,7 @@ export async function POST(request: Request) {
         .filter(Boolean),
     );
 
-    // Find next unused approved variant
+    // Find all unused approved variants
     const { data: availableVariants } = await admin
       .from('problem_variants')
       .select('id')
@@ -183,16 +183,14 @@ export async function POST(request: Request) {
       .eq('approved', true)
       .order('created_at', { ascending: true });
 
-    let nextVariantId: string | null = null;
-    for (const v of availableVariants ?? []) {
-      if (!usedVariantIds.has(v.id)) {
-        nextVariantId = v.id;
-        break;
-      }
-    }
+    const unusedVariants = (availableVariants ?? []).filter(
+      (v: { id: string }) => !usedVariantIds.has(v.id),
+    );
 
-    // If no approved variants left, generate one via AI
-    if (!nextVariantId) {
+    const nextVariantId = unusedVariants.length > 0 ? unusedVariants[0].id : null;
+
+    // Proactive backup: if 1 or fewer unused variants remain, generate a new one via AI
+    if (unusedVariants.length <= 1) {
       const problemStatement = !Array.isArray(assignment.problems)
         ? (assignment.problems as { statement: string } | null)?.statement ?? null
         : null;
@@ -200,7 +198,7 @@ export async function POST(request: Request) {
       if (problemStatement) {
         try {
           const generated = await generateVariant(problemStatement, problemAnswer ?? undefined);
-          const { data: newVariant } = await admin
+          await admin
             .from('problem_variants')
             .insert({
               problem_id: problemId,
@@ -208,15 +206,9 @@ export async function POST(request: Request) {
               answer: generated.answer ?? null,
               generated_by: 'auto',
               approved: true,
-            })
-            .select('id')
-            .single();
-
-          if (newVariant) {
-            nextVariantId = newVariant.id;
-          }
+            });
         } catch {
-          // AI generation failed — student will see "no more variants" on client
+          // AI generation failed — will retry on next submission
         }
       }
     }
