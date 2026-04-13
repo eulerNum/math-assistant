@@ -76,6 +76,9 @@ const adminMockFrom = vi.fn(() => ({
       })),
     })),
   })),
+  update: vi.fn(() => ({
+    eq: vi.fn().mockResolvedValue({ error: null }),
+  })),
   insert: vi.fn(() => ({
     select: vi.fn(() => ({
       single: vi.fn().mockResolvedValue({ data: null, error: null }),
@@ -138,13 +141,7 @@ function setupFromMock(opts: {
         // First call: single assignment fetch
         return makeAssignmentSingleChain(opts.assignmentResult);
       }
-      if (assignmentCallCount === 2) {
-        // Second call: status update  — but actually update happens via chained .update()
-        // The update is chained from the same mock instance in the route
-        // Route calls: from('assignments').update(...).eq(...)
-        return { update: vi.fn(() => ({ eq: mockAssignmentUpdateEq })) };
-      }
-      // Third call: sibling assignments for consecutive check
+      // Second call: sibling assignments for consecutive check (status update now uses admin client)
       return makeSiblingAssignmentsChain([{ id: 'assign-uuid' }]);
     }
     if (table === 'submissions') {

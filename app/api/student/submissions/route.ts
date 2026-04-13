@@ -111,7 +111,10 @@ export async function POST(request: Request) {
     );
   }
 
-  const { error: updateError } = await supabase
+  // Use admin client for status update (student RLS doesn't allow UPDATE on assignments)
+  const admin = createAdminClient();
+
+  const { error: updateError } = await admin
     .from('assignments')
     .update({ status: 'submitted' })
     .eq('id', assignmentId);
@@ -159,8 +162,6 @@ export async function POST(request: Request) {
   let nextAssignmentId: string | null = null;
 
   if (!passed) {
-    const admin = createAdminClient();
-
     // Find already-used variant_ids for this student+problem
     const { data: usedAssignments } = await admin
       .from('assignments')
