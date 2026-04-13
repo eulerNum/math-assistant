@@ -17,6 +17,7 @@
 | 0008_assignments_submissions.sql | assignments + submissions 테이블 (RLS 없음) |
 | 0009_assignments_submissions_rls.sql | assignments/submissions RLS + 정책 |
 | 0010_submissions_storage.sql | `submission-files` bucket + storage.objects RLS 정책 |
+| 0011_grading_fields.sql | submissions.is_correct + submissions.student_answer + problem_variants.approved (Phase 4) |
 
 **새 migration 추가 시**:
 - 이전 prefix + 1 (예: 다음은 `0008_...`)

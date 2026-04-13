@@ -22,9 +22,13 @@ math-assistant/
 │       │   ├── problems/        # Route Handlers (Phase 2)
 │       │   │   ├── route.ts     # POST /api/teacher/problems (저장)
 │       │   │   └── [id]/route.ts # POST /api/teacher/problems/[id] (변형 생성)
-│       │   └── assignments/     # POST /api/teacher/assignments (배정) (Phase 3)
+│       │   ├── assignments/     # POST /api/teacher/assignments (배정) (Phase 3)
+│       │   ├── submissions/
+│       │   │   └── [id]/route.ts # PATCH /api/teacher/submissions/[id] (채점 정정) (Phase 4)
+│       │   └── variants/
+│       │       └── [id]/route.ts # PATCH /api/teacher/variants/[id] (approved 토글) (Phase 4)
 │       └── student/
-│           └── submissions/     # POST /api/student/submissions (제출) (Phase 3)
+│           └── submissions/     # POST /api/student/submissions (제출 + 자동 채점) (Phase 3/4)
 ├── components/                  # Phase 3에서 생성
 │   └── DrawingCanvas.tsx        # Pointer Events 캔버스 (undo 50MB/20캡) (Phase 3)
 │   # 기존 app/ 내 colocated 컴포넌트: NewProblemForm, GenerateVariantButton
@@ -51,7 +55,11 @@ math-assistant/
 │   │   └── upload.ts            # Supabase Storage 클라이언트 직접 업로드
 │   ├── curriculum/              # curriculum tree 로더 (Phase 2 신설)
 │   │   └── server.ts            # getCurriculumTree() — 서버 컴포넌트 전용
-│   ├── mastery/                 # 취약도 계산 엔진 (Phase 4)
+│   ├── grading/                 # 자동 채점 (Phase 4 신설)
+│   │   ├── normalize.ts         # normalizeAnswer() — trim + 공백 정규화 + lowercase
+│   │   └── check.ts             # checkAnswer() — normalized 문자열 비교
+│   ├── mastery/                 # 취약도 계산 엔진 (Phase 4 신설)
+│   │   └── calculate.ts         # calculateMastery() — weight=0.85^(n-i), N=20, 순수 함수 (Vitest 대상)
 │   └── exam/                    # 모의고사 생성 (Phase 5)
 ├── supabase/
 │   └── migrations/
@@ -91,7 +99,7 @@ math-assistant/
         → 불일치 → roleHomePath()로 redirect
 ```
 
-## 데이터 모델 (Phase 3 기준)
+## 데이터 모델 (Phase 4 기준)
 
 ### Phase 1 (auth)
 
@@ -126,6 +134,20 @@ Supabase Storage bucket `problem-images`: 경로 `{teacher_id}/{problem_id}.jpg`
 | `public.submissions` | student 풀이 제출 (FK: assignments, stroke/drawing path) | student: 본인 제출 insert/read, teacher: 담당 student 제출 read |
 
 Supabase Storage bucket `submission-files`: 경로 `{student_id}/{submission_id}/strokes.json` + `drawing.png` — RLS가 첫 segment = `auth.uid()` 강제.
+
+### Phase 4 (grading + mastery)
+
+| 컬럼/필드 | 테이블 | 설명 |
+|-----------|--------|------|
+| `submissions.is_correct` | `public.submissions` | 자동 채점 결과 (boolean). teacher override 가능 |
+| `submissions.student_answer` | `public.submissions` | 제출 시점 학생 답안 (text). override 확인용 |
+| `problem_variants.approved` | `public.problem_variants` | teacher 승인 여부. false면 학생 API 필터링 |
+
+마이그레이션: `0011_grading_fields.sql` (기존 변형 backfill: `approved=true`).
+
+**채점 로직**: `lib/grading/normalize.ts` → `lib/grading/check.ts` → `submissions.is_correct` 기록. 규칙 기반 (trim + 공백 정규화 + lowercase 후 비교). AI 호출 없음.
+
+**Mastery 엔진**: `lib/mastery/calculate.ts`. 입력: `{ is_correct, submitted_at }[]`, 출력: `{ score, passed }`. score = Σ(0.85^(n-i) × is_correct_i) / Σ(0.85^(n-i)), N=20. passed = score ≥ 0.8 AND 최근 3개 중 ≥ 2개 정답.
 
 ## Phase 2 — 문제 등록 파이프라인
 
@@ -174,6 +196,39 @@ teacher → /teacher/problems/[id]
 - **AI**: 외부 LLM + 오프라인 스크립트 우선 (비용 최소화). Anthropic API(`claude-opus-4-6`/`claude-haiku-4-5`)는 optional upgrade path — `lib/ai/`에 래퍼 구현됨
 - **스키마 관리**: `scripts/db-migrate.mjs` (로컬 pg 직접 연결, `sslmode` 파라미터 제거 + `rejectUnauthorized: false`)
 
+## Phase 4 — 채점 + 취약도 플로우
+
+### 자동 채점 (학생 제출 시)
+
+```
+student → POST /api/student/submissions
+  → lib/grading/normalize.ts (trim + 공백 정규화 + lowercase)
+  → lib/grading/check.ts (normalizedAnswer === normalizedCorrect)
+  → submissions insert (is_correct, student_answer 포함)
+  → 같은 problem_id 최근 2 submissions 조회
+      → 연속 2정답이면 assignment.status = 'passed'
+  → 결과 반환 (is_correct, streak_count)
+```
+
+### Teacher 채점 정정
+
+```
+teacher → /teacher/dashboard (제출물 목록 조회)
+  → 정정 버튼 클릭
+  → PATCH /api/teacher/submissions/[id] { is_correct: boolean }
+      → submissions.is_correct 업데이트
+      → (이미 통과한 assignment는 status 변경 없음)
+  → dashboard 새로고침 → lib/mastery/calculate.ts 재계산
+```
+
+### 변형 승인 게이트
+
+```
+teacher → PATCH /api/teacher/variants/[id] { approved: boolean }
+  → problem_variants.approved 업데이트
+  → approved=false 변형은 /api/student/ 조회에서 필터링
+```
+
 ## Phase 3 — 학생 풀이 플로우
 
 ```
@@ -208,7 +263,7 @@ student → /student/solve/[id]
 | 1 | 완료 | Next.js 16 + Supabase Auth scaffold, magic link, role guard |
 | 2 | 완료 | curriculum 시드, 문제 등록(수동 입력 primary + Vision 보조), Storage 업로드 |
 | 3 | 완료 | DrawingCanvas (Pointer Events 표준, iPad + Galaxy Tab), undo 50MB/20개 캡, stroke JSON + PNG 제출 |
-| 4 | 대기 | 규칙 기반 채점 (API 호출 X), `lib/mastery/calculate.ts` (가중평균), teacher 정정 플로우 |
+| 4 | 완료 | 규칙 기반 자동 채점, `lib/mastery/calculate.ts` (weight=0.85^n, N=20), teacher override, 변형 approved 게이트 |
 | 5 | 대기 | `lib/exam/generator.ts` 하이브리드 샘플링, MasteryHeatmap, 모의고사 결과 집계 |
 | 6 | 대기 | 디자인 시스템 + UI 리디자인 (shadcn/ui, 깔끔·미니멀 톤, 기능 확정 후) — 기능 완성 후로 의도적 후치 |
 | 7 | 대기 | 크로스 디바이스 QA (iPad Safari + Galaxy Tab Chrome), Vercel prod 배포, RLS 최종 감사 |
@@ -221,4 +276,5 @@ student → /student/solve/[id]
 - Phase 1 상세 결정: [`docs/decisions/0001-phase-1-nextjs-supabase-auth.md`](decisions/0001-phase-1-nextjs-supabase-auth.md)
 - Phase 2 상세 결정: [`docs/decisions/0002-phase-2-curriculum-and-problems.md`](decisions/0002-phase-2-curriculum-and-problems.md)
 - Phase 3 상세 결정: [`docs/decisions/0003-phase-3-drawing-canvas-student-flow.md`](decisions/0003-phase-3-drawing-canvas-student-flow.md)
+- Phase 4 상세 결정: [`docs/decisions/0004-phase-4-grading-mastery-engine.md`](decisions/0004-phase-4-grading-mastery-engine.md)
 - 초기 설계 초안: `~/.claude/plans/velvet-wishing-naur.md`

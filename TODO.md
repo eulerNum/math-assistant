@@ -31,39 +31,8 @@
 <!-- committed/undoable strokes 분리로 undo 캡 시각 버그 해결 -->
 <!-- Supabase join Array.isArray guard 패턴은 Phase 4에서 supabase gen types 도입으로 해소 예정 -->
 
-## Phase 4: 채점 + 취약도 엔진
-Status: 진행 중
-<!-- 규칙 기반 채점 3단계: 1차 MVP=정답 일치/부분점수 없음/teacher override, 2차=키워드·단계 기반 부분점수, 3차=선택적 AI 보조 피드백 -->
-<!-- lib/mastery/calculate.ts (Vitest 단위 테스트), teacher 정정 플로우 -->
-<!-- API 연동은 optional upgrade path로만 설계 (런타임 API 호출 X) -->
-<!-- Phase 3 이월: teacher 채점·확인 UI (submission PNG 뷰어 포함), Array.isArray guard → supabase gen types Phase 7 이월 -->
-<!-- 특화 skill 후보 (가설): lib/mastery/CLAUDE.md (weight=0.85^n 수식, 경계 케이스) — Phase 4 구현 시 판단 -->
-
-### Steps
-- [x] Step 1: DB Migration — `submissions.is_correct` + `problem_variants.approved` (dev-agent/worktree)
-- [x] Step 2: `lib/mastery/calculate.ts` 순수 함수 + Vitest 테스트 (dev-agent/worktree)
-- [x] Step 3: 자동 채점 API + 학생 순차 풀이 루프 (dev-agent/worktree)
-- [x] Step 4: 변형 승인(approved) 토글 + 필터 (dev-agent/worktree)
-- [x] Step 5: Teacher dashboard — 제출물·배정·숙련도 + 채점 정정 (dev-agent/worktree)
-
-### Requirements
-- **범위**: 자동 채점(정답 문자열 비교, 부분점수 없음) + teacher override + mastery 엔진(`lib/mastery/calculate.ts`) + teacher dashboard(제출물·배정현황·숙련도 모니터링 + 채점 정정) + 학생 풀이 루프(순차 출제→즉시 채점→연속 2정답→통과). supabase gen types는 Phase 7 이월.
-- **성공기준**:
-  - `lib/mastery/calculate.ts` Vitest 단위 테스트 전체 통과
-  - 자동 채점 로직 테스트 통과
-  - Vercel preview 수동 스모크 1회 (teacher 배정 → student 순차 풀이·즉시 채점·연속 2정답 통과 → teacher dashboard에서 숙련도 확인)
-- **제약**: 런타임 API 호출 X, 지속 데이터 전부 Supabase DB
-- **우선순위**: 학생 자동 채점 루프 → mastery 엔진 → teacher dashboard 순
-- **의존성**: Phase 3 완료 (assignments/submissions 테이블, DrawingCanvas, Storage)
-- **UX**:
-  - 변형: 미리 ~3개 생성 + teacher 승인 후 학생에게 공개
-  - 학생: 순차 풀이 → 제출 즉시 채점 → 캔버스 읽기전용 유지 + 하단 결과(정답/오답, 연속 카운터) → 오답 시 정답만 표시 + 원본 문제·풀이 버튼으로 열람 → 다음 변형 → 연속 2정답 시 통과
-  - Teacher: dashboard에서 제출물 목록·배정 현황·숙련도 조회 + 채점 정정(override → mastery 재계산, 이미 통과한 배정은 번복 안 함)
-- **스키마 변경**: submissions에 `is_correct` 필드 추가, 연속 정답은 최근 2건 submission 조회로 판정. problem_variants에 `approved` 필드 추가 (teacher 승인 게이트)
-- **데이터 성장**:
-  - 1년 후 최대 크기: ~수십 KB (1:1 과외, 채점 결과 + mastery 레코드)
-  - 저장 위치: Supabase DB
-  - 글로벌 정책 근거: "지속 데이터는 전부 Supabase" (CLAUDE.md §절대 규칙)
+## ~~Phase 4: 채점 + 취약도 엔진~~ ✅
+<!-- 상세: docs/decisions/0004-phase-4-grading-mastery-engine.md, git history -->
 
 ## Phase 5: 모의고사 생성 + 취약도 시각화
 Status: 대기
