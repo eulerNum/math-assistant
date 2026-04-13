@@ -48,6 +48,9 @@ export default async function StudentAssignmentsPage() {
 
   return (
     <main className="mx-auto max-w-2xl p-8">
+      <div className="mb-2">
+        <Link href="/student/home" className="text-sm text-gray-500 hover:underline">← 홈</Link>
+      </div>
       <h1 className="text-2xl font-semibold">배정된 문제</h1>
       {assignments.length === 0 ? (
         <p className="mt-6 text-sm text-gray-500">배정된 문제가 없습니다.</p>

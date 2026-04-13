@@ -15,6 +15,9 @@ export default async function TeacherProblemsPage() {
 
   return (
     <main className="mx-auto max-w-3xl p-8">
+      <div className="mb-2">
+        <Link href="/teacher/dashboard" className="text-sm text-gray-500 hover:underline">← Dashboard</Link>
+      </div>
       <div className="mb-6 flex items-center justify-between">
         <h1 className="text-2xl font-semibold">문제 목록</h1>
         <Link

@@ -1,3 +1,4 @@
+import Link from 'next/link';
 import { requireTeacher } from '@/lib/auth/session';
 import { createClient } from '@/lib/supabase/server';
 import { calculateMastery } from '@/lib/mastery/calculate';
@@ -149,6 +150,10 @@ export default async function TeacherDashboard() {
       <div>
         <h1 className="text-2xl font-semibold">Teacher Dashboard</h1>
         <p className="mt-1 text-sm text-gray-500">{user.email}</p>
+        <nav className="mt-3 flex gap-3">
+          <Link href="/teacher/problems" className="rounded border border-gray-300 px-3 py-1 text-sm hover:bg-gray-100">문제 목록</Link>
+          <Link href="/teacher/problems/new" className="rounded border border-gray-300 px-3 py-1 text-sm hover:bg-gray-100">문제 등록</Link>
+        </nav>
       </div>
 
       {/* Assignment status */}
