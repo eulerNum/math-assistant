@@ -143,11 +143,15 @@ export default async function TeacherDashboard() {
 
   const admin = createAdminClient();
 
-  const { data: studentRows } = await admin
+  const { data: studentRows, error: studentError } = await admin
     .from('students')
-    .select('id, profiles(email, display_name)')
+    .select('id, profiles!profile_id(email, display_name)')
     .eq('teacher_id', user.id)
     .order('created_at', { ascending: false });
+
+  if (studentError) {
+    console.error('fetchStudents error:', studentError.message);
+  }
 
   const students = (studentRows ?? []).map((row) => {
     const profile = !Array.isArray(row.profiles)

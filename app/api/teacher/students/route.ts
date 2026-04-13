@@ -1,6 +1,5 @@
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
-import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { requireTeacher } from '@/lib/auth/session';
 
@@ -12,14 +11,14 @@ export async function GET() {
   const teacher = await requireTeacher();
   const admin = createAdminClient();
 
-  // Use admin client to bypass RLS on profiles (teacher can't read other users' profiles)
   const { data: studentRows, error } = await admin
     .from('students')
-    .select('id, grade, note, created_at, profiles(email, display_name)')
+    .select('id, grade, note, created_at, profiles!profile_id(email, display_name)')
     .eq('teacher_id', teacher.id)
     .order('created_at', { ascending: false });
 
   if (error) {
+    console.error('GET /api/teacher/students error:', error.message);
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 
@@ -50,7 +49,7 @@ export async function POST(request: Request) {
 
   const admin = createAdminClient();
 
-  // Use admin client to search profiles by email (RLS blocks cross-user reads)
+  // Search profiles by email (admin bypasses RLS)
   const { data: profile } = await admin
     .from('profiles')
     .select('id, role, email')
@@ -71,9 +70,8 @@ export async function POST(request: Request) {
     );
   }
 
-  // Check duplicate — use user client (RLS allows teacher to read own students)
-  const supabase = await createClient();
-  const { data: existing } = await supabase
+  // Check duplicate (admin to avoid RLS issues)
+  const { data: existing } = await admin
     .from('students')
     .select('id')
     .eq('teacher_id', teacher.id)
@@ -87,7 +85,8 @@ export async function POST(request: Request) {
     );
   }
 
-  const { data: inserted, error: insertError } = await supabase
+  // Insert with admin client to bypass RLS
+  const { data: inserted, error: insertError } = await admin
     .from('students')
     .insert({
       teacher_id: teacher.id,
@@ -97,10 +96,15 @@ export async function POST(request: Request) {
     .single();
 
   if (insertError || !inserted) {
-    return NextResponse.json(
-      { error: `등록 실패: ${insertError?.message ?? 'unknown'}` },
-      { status: 500 },
-    );
+    const msg = insertError?.message ?? 'unknown';
+    // Unique violation on profile_id = student already assigned to another teacher
+    if (insertError?.code === '23505') {
+      return NextResponse.json(
+        { error: '이 학생은 다른 선생님에게 이미 등록되어 있습니다.' },
+        { status: 409 },
+      );
+    }
+    return NextResponse.json({ error: `등록 실패: ${msg}` }, { status: 500 });
   }
 
   return NextResponse.json({ id: inserted.id, email: profile.email }, { status: 201 });
