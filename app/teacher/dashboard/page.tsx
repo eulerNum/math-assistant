@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import { requireTeacher } from '@/lib/auth/session';
 import { createClient } from '@/lib/supabase/server';
+import { createAdminClient } from '@/lib/supabase/admin';
 import { calculateMastery } from '@/lib/mastery/calculate';
 import OverrideButton from './OverrideButton';
 import AddStudentForm from './AddStudentForm';
@@ -140,9 +141,9 @@ async function fetchMasteryByType(teacherId: string) {
 export default async function TeacherDashboard() {
   const user = await requireTeacher();
 
-  const supabase = await createClient();
+  const admin = createAdminClient();
 
-  const { data: studentRows } = await supabase
+  const { data: studentRows } = await admin
     .from('students')
     .select('id, profiles(email, display_name)')
     .eq('teacher_id', user.id)

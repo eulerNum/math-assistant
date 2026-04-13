@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
 import { createClient } from '@/lib/supabase/server';
+import { createAdminClient } from '@/lib/supabase/admin';
 import { requireTeacher } from '@/lib/auth/session';
 
 const PostBody = z.object({
@@ -9,9 +10,10 @@ const PostBody = z.object({
 
 export async function GET() {
   const teacher = await requireTeacher();
-  const supabase = await createClient();
+  const admin = createAdminClient();
 
-  const { data, error } = await supabase
+  // Use admin client to bypass RLS on profiles (teacher can't read other users' profiles)
+  const { data: studentRows, error } = await admin
     .from('students')
     .select('id, grade, note, created_at, profiles(email, display_name)')
     .eq('teacher_id', teacher.id)
@@ -21,7 +23,7 @@ export async function GET() {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 
-  const students = (data ?? []).map((row) => {
+  const students = (studentRows ?? []).map((row) => {
     const profile = !Array.isArray(row.profiles)
       ? (row.profiles as { email: string | null; display_name: string | null } | null)
       : null;
@@ -46,10 +48,10 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: parsed.error.message }, { status: 400 });
   }
 
-  const supabase = await createClient();
+  const admin = createAdminClient();
 
-  // Find student profile by email (profiles.email populated by trigger)
-  const { data: profile } = await supabase
+  // Use admin client to search profiles by email (RLS blocks cross-user reads)
+  const { data: profile } = await admin
     .from('profiles')
     .select('id, role, email')
     .eq('email', parsed.data.email)
@@ -69,7 +71,8 @@ export async function POST(request: Request) {
     );
   }
 
-  // Check if already registered under this teacher
+  // Check duplicate — use user client (RLS allows teacher to read own students)
+  const supabase = await createClient();
   const { data: existing } = await supabase
     .from('students')
     .select('id')
