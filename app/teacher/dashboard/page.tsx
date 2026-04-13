@@ -3,6 +3,7 @@ import { requireTeacher } from '@/lib/auth/session';
 import { createClient } from '@/lib/supabase/server';
 import { calculateMastery } from '@/lib/mastery/calculate';
 import OverrideButton from './OverrideButton';
+import AddStudentForm from './AddStudentForm';
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -139,6 +140,21 @@ async function fetchMasteryByType(teacherId: string) {
 export default async function TeacherDashboard() {
   const user = await requireTeacher();
 
+  const supabase = await createClient();
+
+  const { data: studentRows } = await supabase
+    .from('students')
+    .select('id, profiles(email, display_name)')
+    .eq('teacher_id', user.id)
+    .order('created_at', { ascending: false });
+
+  const students = (studentRows ?? []).map((row) => {
+    const profile = !Array.isArray(row.profiles)
+      ? (row.profiles as { email: string; display_name: string | null } | null)
+      : null;
+    return { id: row.id as string, email: profile?.email ?? null, display_name: profile?.display_name ?? null };
+  });
+
   const [submissions, assignmentCounts, masteryByType] = await Promise.all([
     fetchRecentSubmissions(user.id),
     fetchAssignmentCounts(user.id),
@@ -155,6 +171,9 @@ export default async function TeacherDashboard() {
           <Link href="/teacher/problems/new" className="rounded border border-gray-300 px-3 py-1 text-sm hover:bg-gray-100">문제 등록</Link>
         </nav>
       </div>
+
+      {/* Student management */}
+      <AddStudentForm students={students} />
 
       {/* Assignment status */}
       <section>
